@@ -131,7 +131,7 @@ public class Game
             ForwardAcceleration = Math.Clamp(settings.ForwardAcceleration, 1, 30),
             BrakeAcceleration = Math.Clamp(settings.BrakeAcceleration, -30, 0),
             MaxSpeed = Math.Clamp(settings.MaxSpeed, 1, 160),
-            TurnDegrees = Math.Clamp(settings.TurnDegrees, 1, 90),
+            TurnDegrees = Math.Clamp(settings.TurnDegrees, 1, 180),
             BackwardSpeedMultiplier = Math.Clamp(settings.BackwardSpeedMultiplier, 0.1, 1.5)
         };
     }

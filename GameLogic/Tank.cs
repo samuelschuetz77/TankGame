@@ -8,6 +8,8 @@ public record Tank
     public int PositionX { get; init; } = 50;
     public int Angle { get; init; } = -45;
     public int Speed { get; init; } = 0;
+    // Driving backwards: the hull faces away from the direction of travel
+    public bool Reversing { get; init; }
     public bool MovingUp { get; init; }
     public bool MovingLeft { get; init; }
     public bool MovingRight { get; init; }
@@ -19,7 +21,6 @@ public record Tank
     public int TurretAngle { get; init; } = -45;
     //public Bullet Bullet { get; set; } = new();
 
-    private const int MovementSpeedConst = 8;
     // Distance from the turret pivot to the muzzle, matching the drawn barrel
     public const int BarrelLength = 40;
 
@@ -98,22 +99,46 @@ public record Tank
 
         if (netX == 0 && netY == 0)
         {
-            return tank with { Speed = 0 };
+            // No input: brake (BrakeAcceleration is negative), coasting on any leftover speed
+            return tank with { Speed = Math.Clamp(tank.Speed + settings.BrakeAcceleration, 0, settings.MaxSpeed) };
         }
 
-        var newAngle = (int)Math.Round(Math.Atan2(netY, netX) * 180.0 / Math.PI);
+        var desiredAngle = (int)Math.Round(Math.Atan2(netY, netX) * 180.0 / Math.PI);
+
+        // A slow-turning hull that would have to swing past 90 degrees backs up instead
+        var reversing = settings.TurnDegrees < 180
+            && Math.Abs(AngleDifference(desiredAngle, tank.Angle)) > 90;
+        var targetAngle = reversing ? NormalizeAngle(desiredAngle + 180) : desiredAngle;
+
+        var turn = Math.Clamp(AngleDifference(targetAngle, tank.Angle), -settings.TurnDegrees, settings.TurnDegrees);
+
         return tank with
         {
-            Angle = newAngle,
-            Speed = Math.Min(MovementSpeedConst, settings.MaxSpeed),
+            Angle = NormalizeAngle(tank.Angle + turn),
+            Reversing = reversing,
+            Speed = Math.Clamp(tank.Speed + settings.ForwardAcceleration, 0, settings.MaxSpeed),
         };
     }
+
+    // Wraps to (-180, 180]
+    private static int NormalizeAngle(int angle)
+    {
+        var wrapped = ((angle % 360) + 360) % 360;
+        return wrapped > 180 ? wrapped - 360 : wrapped;
+    }
+
+    // Shortest signed turn from `from` to `to`, in (-180, 180]
+    private static int AngleDifference(int to, int from) => NormalizeAngle(to - from);
 
     private static Tank CalculateNewPosition(Tank incomingTank, GameMap map, DeveloperGameSettings settings)
     {
         double radians = Math.PI * incomingTank.Angle / 180.0;
-        var deltaX = (int)(incomingTank.Speed * Math.Cos(radians));
-        var deltaY = (int)(incomingTank.Speed * Math.Sin(radians));
+        var speed = incomingTank.Reversing
+            ? incomingTank.Speed * settings.BackwardSpeedMultiplier
+            : incomingTank.Speed;
+        var direction = incomingTank.Reversing ? -1 : 1;
+        var deltaX = direction * (int)(speed * Math.Cos(radians));
+        var deltaY = direction * (int)(speed * Math.Sin(radians));
 
         return MoveUntilBlocked(incomingTank, deltaX, deltaY, map, settings);
     }

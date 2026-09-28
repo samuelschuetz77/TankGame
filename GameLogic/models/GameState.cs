@@ -28,8 +28,8 @@ public record DeveloperGameSettings
     public int CollisionStepPixels { get; init; } = 1;
     public int ForwardAcceleration { get; init; } = 8;
     public int BrakeAcceleration { get; init; } = -16;
-    public int MaxSpeed { get; init; } = 30;
-    public int TurnDegrees { get; init; } = 10;
+    public int MaxSpeed { get; init; } = 8;
+    public int TurnDegrees { get; init; } = 180;
     public double BackwardSpeedMultiplier { get; init; } = 0.65;
 }
 

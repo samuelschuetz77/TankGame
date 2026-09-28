@@ -77,12 +77,12 @@
         </label>
 
         <label class="form-label d-block">
-          Turn degrees: @turnDegrees
-          <input class="form-range" type="range" min="1" max="90" value="@turnDegrees" @oninput="SetTurnDegrees">
+          Turn degrees per tick: @turnDegrees (180 = instant)
+          <input class="form-range" type="range" min="1" max="180" value="@turnDegrees" @oninput="SetTurnDegrees">
         </label>
 
         <label class="form-label d-block">
-          Backward multiplier: @backwardSpeedMultiplier.ToString("0.00")
+          Reverse speed multiplier: @backwardSpeedMultiplier.ToString("0.00")
           <input class="form-range" type="range" min="0.10" max="1.50" step="0.05" value="@backwardSpeedMultiplier" @oninput="SetBackwardSpeedMultiplier">
         </label>
       </aside>
