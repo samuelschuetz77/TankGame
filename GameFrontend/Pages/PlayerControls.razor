@@ -5,7 +5,7 @@
 @implements IDisposable
 
 <div>
-    Select box, drive with the arrow keys, aim with the mouse, and click to fire
+    Select box, drive with WASD or the arrow keys, aim with the mouse, and click to fire
 </div>
 <div tabindex="0" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
@@ -51,14 +51,24 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
           TimeSpan.Zero,
           TimeSpan.FromSeconds(inputCheckInterval)); // Executes every second
     }
+    // WASD is an alias for the arrow keys
+    private static string NormalizeKey(string key) => key.ToLowerInvariant() switch
+    {
+        "w" => "ArrowUp",
+        "a" => "ArrowLeft",
+        "s" => "ArrowDown",
+        "d" => "ArrowRight",
+        _ => key
+    };
     private void handleKeyDown(KeyboardEventArgs e)
     {
-        if (movementKeys.Contains(e.Key))
-            pressedKeys.Add(e.Key);
+        var key = NormalizeKey(e.Key);
+        if (movementKeys.Contains(key))
+            pressedKeys.Add(key);
     }
     private void handleKeyUp(KeyboardEventArgs e)
     {
-        pressedKeys.Remove(e.Key);
+        pressedKeys.Remove(NormalizeKey(e.Key));
     }
     private void handleMouseMove(MouseEventArgs e)
     {
