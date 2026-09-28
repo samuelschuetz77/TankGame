@@ -43,9 +43,16 @@ public record Obstacle(int X, int Y, int Width, int Height)
 
 public record RectangleArea(int X, int Y, int Width, int Height);
 
-public static class MapCatalog
+public interface IMapSource
 {
-    public static IReadOnlyList<GameMap> FixedMaps { get; } =
+    IReadOnlyList<GameMap> Maps { get; }
+    GameMap DefaultMap { get; }
+    GameMap GetByName(string? mapName);
+}
+
+public sealed class FixedMapSource : IMapSource
+{
+    public IReadOnlyList<GameMap> Maps { get; } =
     [
         new(
             "Crossfire",
@@ -109,10 +116,21 @@ public static class MapCatalog
             ])
     ];
 
-    public static GameMap DefaultMap => FixedMaps[0];
+    public GameMap DefaultMap => Maps[0];
 
-    public static GameMap GetByName(string? mapName)
+    public GameMap GetByName(string? mapName)
     {
-        return FixedMaps.FirstOrDefault(map => map.Name == mapName) ?? DefaultMap;
+        return Maps.FirstOrDefault(map => map.Name == mapName) ?? DefaultMap;
     }
+}
+
+public static class MapCatalog
+{
+    private static readonly IMapSource Source = new FixedMapSource();
+
+    public static IReadOnlyList<GameMap> FixedMaps => Source.Maps;
+
+    public static GameMap DefaultMap => Source.DefaultMap;
+
+    public static GameMap GetByName(string? mapName) => Source.GetByName(mapName);
 }

@@ -7,11 +7,13 @@ public class Lobby
 {
   public List<Game> Games { get; set; } = new();
   private readonly IHubContext<LobbyHub> context;
+  private readonly IMapSource mapSource;
 
   //public event Action? OnLobbyUpdate;
-  public Lobby(IHubContext<LobbyHub> context)
+  public Lobby(IHubContext<LobbyHub> context, IMapSource? mapSource = null)
   {
     this.context = context;
+    this.mapSource = mapSource ?? new FixedMapSource();
   }
 
   public Game CreateGame(string name, string? mapName = null, string? matchType = null)
@@ -22,7 +24,7 @@ public class Lobby
       MatchType = matchType == GameMatchTypes.DeveloperSimulation
         ? GameMatchTypes.DeveloperSimulation
         : GameMatchTypes.Multiplayer,
-      Map = MapCatalog.GetByName(mapName)
+      Map = mapSource.GetByName(mapName)
     };
 
     Games.Add(newGame);
