@@ -8,13 +8,20 @@ public record Tank
     public int PositionX { get; init; } = 50;
     public int Angle { get; init; } = -45;
     public int Speed { get; init; } = 0;
-    public bool MovingForward { get; init; }
+    public bool MovingUp { get; init; }
     public bool MovingLeft { get; init; }
     public bool MovingRight { get; init; }
     public bool Shooting { get; init; }
-    public bool MovingBackward { get; init; }
-    public bool LastDirectionWasBackwards { get; init; }
+    public bool MovingDown { get; init; }
+    // Point the turret aims at (the player's mouse), in board coordinates
+    public int? AimX { get; init; }
+    public int? AimY { get; init; }
+    public int TurretAngle { get; init; } = -45;
     //public Bullet Bullet { get; set; } = new();
+
+    private const int MovementSpeedConst = 8;
+    // Distance from the turret pivot to the muzzle, matching the drawn barrel
+    public const int BarrelLength = 40;
 
     public static Tank ProcessTankMovement(Tank tank)
     {
@@ -31,7 +38,43 @@ public record Tank
         var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
         var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);
-        return movedShip;
+        return AimTurret(movedShip, settings);
+    }
+
+    // Center of the drawn tank, which the turret rotates around
+    public static (int X, int Y) GetCenter(Tank tank, DeveloperGameSettings settings) =>
+        (tank.PositionX + Size / 2, tank.PositionY - settings.VisualTopOffset + Size / 2);
+
+    // Re-aim every tick so the turret stays on the cursor while the tank drives
+    public static Tank AimTurret(Tank tank, DeveloperGameSettings settings)
+    {
+        if (tank.AimX is null || tank.AimY is null)
+            return tank;
+
+        var (centerX, centerY) = GetCenter(tank, settings);
+        var deltaX = tank.AimX.Value - centerX;
+        var deltaY = tank.AimY.Value - centerY;
+        if (deltaX == 0 && deltaY == 0)
+            return tank;
+
+        var newAngle = (int)Math.Round(Math.Atan2(deltaY, deltaX) * 180.0 / Math.PI);
+        return tank with { TurretAngle = newAngle };
+    }
+
+    // Bullet leaving the muzzle along the turret's direction
+    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings)
+    {
+        var (centerX, centerY) = GetCenter(tank, settings);
+        double radians = Math.PI * tank.TurretAngle / 180.0;
+        var muzzleX = centerX + (int)Math.Round(BarrelLength * Math.Cos(radians));
+        var muzzleY = centerY + (int)Math.Round(BarrelLength * Math.Sin(radians));
+        return new Bullet
+        {
+            // Bullet position is its top-left corner; center it on the muzzle
+            PositionX = muzzleX - Bullet.BulletSize / 2,
+            PositionY = muzzleY - Bullet.BulletSize / 2,
+            Angle = tank.TurretAngle
+        };
     }
 
     public static RectangleArea GetCollisionArea(Tank tank) =>
@@ -50,42 +93,20 @@ public record Tank
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank, DeveloperGameSettings settings)
     {
-        int speedDelta;
-        var nextAngle = tank.Angle;
-        if (tank.MovingLeft)
+        var netX = (tank.MovingRight ? 1 : 0) - (tank.MovingLeft ? 1 : 0);
+        var netY = (tank.MovingDown ? 1 : 0) - (tank.MovingUp ? 1 : 0);
+
+        if (netX == 0 && netY == 0)
         {
-            nextAngle -= settings.TurnDegrees;
-        }
-        else if (tank.MovingRight)
-        {
-            nextAngle += settings.TurnDegrees;
-        }
-        if (tank.MovingForward)
-        {
-            speedDelta = settings.ForwardAcceleration;
+            return tank with { Speed = 0 };
         }
 
-        else if (tank.MovingBackward)
+        var newAngle = (int)Math.Round(Math.Atan2(netY, netX) * 180.0 / Math.PI);
+        return tank with
         {
-            speedDelta = settings.ForwardAcceleration;
-        }
-        else
-        {
-            speedDelta = settings.BrakeAcceleration;
-        }
-
-        var newSpeed = Math.Clamp(
-        tank.Speed + speedDelta,
-        0,
-        settings.MaxSpeed
-      );
-
-        var turnedShip = tank with
-        {
-            Speed = newSpeed,
-            Angle = nextAngle,
+            Angle = newAngle,
+            Speed = Math.Min(MovementSpeedConst, settings.MaxSpeed),
         };
-        return turnedShip;
     }
 
     private static Tank CalculateNewPosition(Tank incomingTank, GameMap map, DeveloperGameSettings settings)
@@ -93,13 +114,6 @@ public record Tank
         double radians = Math.PI * incomingTank.Angle / 180.0;
         var deltaX = (int)(incomingTank.Speed * Math.Cos(radians));
         var deltaY = (int)(incomingTank.Speed * Math.Sin(radians));
-        var backDeltaX = (int)(incomingTank.Speed * Math.Cos(radians) * settings.BackwardSpeedMultiplier);
-        var backDeltaY = (int)(incomingTank.Speed * Math.Sin(radians) * settings.BackwardSpeedMultiplier);
-
-        if (incomingTank.LastDirectionWasBackwards)
-        {
-            return MoveUntilBlocked(incomingTank, -backDeltaX, -backDeltaY, map, settings);
-        }
 
         return MoveUntilBlocked(incomingTank, deltaX, deltaY, map, settings);
     }

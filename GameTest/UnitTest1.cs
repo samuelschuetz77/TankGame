@@ -12,8 +12,7 @@ public class UnitTest1
         var game = new Game(new TestHubContext());
         var id = game.JoinGame();
         game.ReceiveUserInput(new PlayerInputRequest { GameName = "bullets", PlayerId = id,
-            Forward = false, Backward = false, Left = false, Right = false,
-            Shoot = true, LastDirectionBackwards = false });
+            Up = false, Down = false, Left = false, Right = false, Shoot = true });
         var before = game.GetGameState().Bullets!.Single();
 
         await game.loopRunner.ProcessGameTick();
@@ -82,8 +81,7 @@ public class UnitTest1
         };
         var id = game.JoinGame();
         var input = new PlayerInputRequest { GameName = "Concurrent", PlayerId = id,
-            Forward = true, Backward = false, Left = false, Right = false, Shoot = false,
-            LastDirectionBackwards = false };
+            Up = true, Down = false, Left = false, Right = false, Shoot = false };
         game.ReceiveUserInput(input);
         var tick = Task.Run(() => game.loopRunner.ProcessGameTick());
         Task reverse = Task.CompletedTask;
@@ -92,7 +90,7 @@ public class UnitTest1
             Assert.True(obstacles.Entered.Wait(TimeSpan.FromSeconds(5)));
             reverse = Task.Run(() => game.ReceiveUserInput(input with
             {
-                Forward = false, Backward = true, LastDirectionBackwards = true
+                Up = false, Down = true
             }));
             await Task.WhenAny(reverse, Task.Delay(100));
         }
@@ -101,8 +99,8 @@ public class UnitTest1
             obstacles.Resume.Set();
             await Task.WhenAll(tick, reverse);
         }
-        Assert.True(game.Tanks.Single().MovingBackward);
-        Assert.True(game.Tanks.Single().LastDirectionWasBackwards);
+        Assert.True(game.Tanks.Single().MovingDown);
+        Assert.False(game.Tanks.Single().MovingUp);
     }
 
     [Theory]
@@ -111,8 +109,9 @@ public class UnitTest1
     public void ReverseEscapesReportedCenterWallContact(bool sliding)
     {
         var map = MapCatalog.GetByName("Center Wall");
+        // Touching the wall's corner, then driving up-left away from it
         var tank = new Tank { PositionX = 338, PositionY = 269, Angle = 50,
-            MovingBackward = true, LastDirectionWasBackwards = true };
+            MovingUp = true, MovingLeft = true };
         var settings = new DeveloperGameSettings { SlideAlongWalls = sliding };
 
         var moved = Tank.ProcessTankMovement(tank, map, settings);
@@ -123,14 +122,15 @@ public class UnitTest1
     }
 
     [Theory]
-    [InlineData(68, 94, 45)]
-    [InlineData(192, 94, 135)]
-    [InlineData(68, 218, -45)]
-    [InlineData(192, 218, 225)]
-    public void ExactCornerContactDoesNotChooseAnArbitraryTrajectory(int x, int y, int angle)
+    [InlineData(68, 94, true, false, false, true)]
+    [InlineData(192, 94, false, true, false, true)]
+    [InlineData(68, 218, true, false, true, false)]
+    [InlineData(192, 218, false, true, true, false)]
+    public void ExactCornerContactDoesNotChooseAnArbitraryTrajectory(int x, int y, bool right, bool left, bool up, bool down)
     {
         var map = new GameMap("Corner", 400, 400, [new Obstacle(120, 120, 80, 80)], []);
-        var tank = new Tank { PositionX = x, PositionY = y, Angle = angle, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = x, PositionY = y,
+            MovingRight = right, MovingLeft = left, MovingUp = up, MovingDown = down };
         var settings = new DeveloperGameSettings { SlideAlongWalls = true };
 
         var moved = Tank.ProcessTankMovement(tank, map, settings);
@@ -146,13 +146,16 @@ public class UnitTest1
     public void DiagonalWallContactSlidesOnlyWhenEnabled(bool sliding)
     {
         var map = new GameMap("Wall", 400, 400, [new Obstacle(120, 0, 1, 300)], []);
-        var tank = new Tank { PositionX = 68, PositionY = 100, Angle = 45, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = 68, PositionY = 100, MovingDown = true, MovingRight = true };
         var settings = new DeveloperGameSettings { SlideAlongWalls = sliding, CollisionStepPixels = 12 };
 
         var moved = Tank.ProcessTankMovement(tank, map, settings);
 
         Assert.Equal(68, moved.PositionX);
-        Assert.Equal(sliding ? 121 : 100, moved.PositionY);
+        if (sliding)
+            Assert.True(moved.PositionY > tank.PositionY);
+        else
+            Assert.Equal(tank.PositionY, moved.PositionY);
         Assert.False(map.Blocks(Tank.GetCollisionArea(moved, settings)));
     }
 
@@ -162,7 +165,7 @@ public class UnitTest1
         var map = new GameMap("Corner", 400, 400,
             [new Obstacle(120, 0, 20, 300), new Obstacle(0, 150, 300, 20)], []);
         var settings = new DeveloperGameSettings { SlideAlongWalls = true };
-        var tank = new Tank { PositionX = 68, PositionY = 124, Angle = 45, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = 68, PositionY = 124, MovingDown = true, MovingRight = true };
 
         var stopped = Tank.ProcessTankMovement(tank, map, settings);
         Assert.Equal(tank.PositionX, stopped.PositionX);
@@ -171,7 +174,7 @@ public class UnitTest1
 
         var reversed = Tank.ProcessTankMovement(stopped with
         {
-            MovingForward = false, MovingBackward = true, LastDirectionWasBackwards = true
+            MovingDown = false, MovingRight = false, MovingUp = true, MovingLeft = true
         }, map, settings);
         Assert.True(reversed.PositionX < stopped.PositionX);
         Assert.True(reversed.PositionY < stopped.PositionY);
@@ -183,9 +186,12 @@ public class UnitTest1
     {
         var map = new GameMap("Corner", 400, 400, [new Obstacle(120, 0, 20, 120)], []);
         var settings = new DeveloperGameSettings { SlideAlongWalls = true };
-        var tank = new Tank { PositionX = 68, PositionY = 130, Angle = 45, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = 68, PositionY = 130, MovingDown = true, MovingRight = true };
 
-        var moved = Tank.ProcessTankMovement(tank, map, settings);
+        // Slide down the wall's face for a few ticks until the tank clears its end
+        var moved = tank;
+        for (var tick = 0; tick < 5; tick++)
+            moved = Tank.ProcessTankMovement(moved, map, settings);
 
         Assert.True(moved.PositionX > tank.PositionX);
         Assert.True(moved.PositionY > tank.PositionY);
@@ -263,12 +269,11 @@ public class UnitTest1
         {
             GameName = "TestGame",
             PlayerId = playerId,
-            Forward = false,
+            Up = false,
             Left = false,
             Right = false,
-            Backward = false,
+            Down = false,
             Shoot = true,
-            LastDirectionBackwards = false
         };
 
         game.ReceiveUserInput(playerInput);
@@ -276,8 +281,9 @@ public class UnitTest1
         var gameState = game.GetGameState();
         var bullet = gameState.Bullets!.FirstOrDefault();
         Assert.NotNull(bullet);
-        Assert.Equal(game.Tanks.First().PositionX, bullet.PositionX);
-        Assert.Equal(game.Tanks.First().PositionY, bullet.PositionY);
+        var expected = Tank.FireBullet(game.Tanks.First(), game.DeveloperSettings);
+        Assert.Equal(expected.PositionX, bullet.PositionX);
+        Assert.Equal(expected.PositionY, bullet.PositionY);
 
         await game.loopRunner.ProcessGameTick();
 
@@ -287,6 +293,61 @@ public class UnitTest1
         Assert.True(
             bullet.PositionX != updatedBullet.PositionX ||
             bullet.PositionY != updatedBullet.PositionY);
+    }
+
+    private static PlayerInputRequest Input(Guid playerId, bool shoot, int? aimX = null, int? aimY = null) => new()
+    {
+        GameName = "shooting", PlayerId = playerId,
+        Up = false, Down = false, Left = false, Right = false,
+        Shoot = shoot, AimX = aimX, AimY = aimY,
+    };
+
+    [Fact]
+    public void BulletFiresAlongTurretFromMuzzle()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+        var (centerX, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
+
+        // Aim straight down from the tank's center, then fire
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: centerX, aimY: centerY + 200));
+
+        var bullet = game.Bullets.Single();
+        Assert.Equal(90, bullet.Angle);
+        Assert.Equal(centerX, bullet.PositionX + Bullet.BulletSize / 2);
+        Assert.Equal(centerY + Tank.BarrelLength, bullet.PositionY + Bullet.BulletSize / 2);
+    }
+
+    [Fact]
+    public void BulletIgnoresHullDirection()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+        var (centerX, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
+
+        // Drive right while aiming up: the bullet follows the turret, not the hull
+        game.ReceiveUserInput(Input(id, shoot: false, aimX: centerX, aimY: centerY - 200) with { Right = true });
+        game.ReceiveUserInput(Input(id, shoot: true) with { Right = true });
+
+        Assert.Equal(-90, game.Bullets.Single().Angle);
+    }
+
+    [Fact]
+    public void HoldingFireShootsOncePerPress()
+    {
+        var game = new Game(new TestHubContext());
+        var id = game.JoinGame();
+
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 300, aimY: 300));
+        // Still held while the mouse moves: no extra bullets
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 310, aimY: 300));
+        game.ReceiveUserInput(Input(id, shoot: true, aimX: 320, aimY: 300));
+        Assert.Single(game.Bullets);
+
+        // Release and press again: a second bullet
+        game.ReceiveUserInput(Input(id, shoot: false));
+        game.ReceiveUserInput(Input(id, shoot: true));
+        Assert.Equal(2, game.Bullets.Count());
     }
 
     [Fact]
@@ -311,9 +372,11 @@ public class UnitTest1
     public void TankMovementStaysInsideMapBounds()
     {
         var map = new GameMap("Test", 120, 120, [], [new MapSpawnPoint(0, 0, 0)]);
-        var tank = new Tank { PositionX = 50, PositionY = 50, Angle = 0, MovingForward = true, Speed = 80 };
+        var tank = new Tank { PositionX = 50, PositionY = 50, MovingRight = true, MovingDown = true };
 
-        var movedTank = Tank.ProcessTankMovement(tank, map);
+        var movedTank = tank;
+        for (var tick = 0; tick < 20; tick++)
+            movedTank = Tank.ProcessTankMovement(movedTank, map);
 
         Assert.InRange(movedTank.PositionX, 0, 60);
         Assert.InRange(movedTank.PositionY, 0, 60);
@@ -323,9 +386,11 @@ public class UnitTest1
     public void TankMovementIsBlockedByObstacle()
     {
         var map = new GameMap("Test", 300, 300, [new Obstacle(120, 30, 80, 80)], [new MapSpawnPoint(0, 0, 0)]);
-        var tank = new Tank { PositionX = 50, PositionY = 50, Angle = 0, MovingForward = true, Speed = 30 };
+        var tank = new Tank { PositionX = 50, PositionY = 50, MovingRight = true };
 
-        var movedTank = Tank.ProcessTankMovement(tank, map);
+        var movedTank = tank;
+        for (var tick = 0; tick < 5; tick++)
+            movedTank = Tank.ProcessTankMovement(movedTank, map);
 
         Assert.Equal(68, movedTank.PositionX);
         Assert.Equal(tank.PositionY, movedTank.PositionY);

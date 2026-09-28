@@ -41,7 +41,7 @@ public class Game
                 PositionX = t.PositionX,
                 PositionY = t.PositionY,
                 Angle = t.Angle,
-
+                TurretAngle = t.TurretAngle,
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
             {
@@ -85,23 +85,20 @@ public class Game
 
                 var updatedTank = t with
                 {
-                    MovingForward = request.Forward,
+                    MovingUp = request.Up,
                     MovingLeft = request.Left,
                     MovingRight = request.Right,
                     Shooting = request.Shoot,
-                    MovingBackward = request.Backward,
-                    LastDirectionWasBackwards = request.LastDirectionBackwards
+                    MovingDown = request.Down,
+                    AimX = request.AimX ?? t.AimX,
+                    AimY = request.AimY ?? t.AimY,
                 };
+                updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
 
-                if (updatedTank.Shooting)
+                // Fire once per press; holding the button (or aiming while held) doesn't spray
+                if (updatedTank.Shooting && !t.Shooting)
                 {
-                    var bullet = new Bullet
-                    {
-                        PositionX = updatedTank.PositionX,
-                        PositionY = updatedTank.PositionY,
-                        Angle = updatedTank.Angle
-                    };
-                    Bullets = Bullets.Append(bullet);
+                    Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings));
                 }
 
                 //if (updatedTank.Bullet != null)

@@ -18,12 +18,12 @@
         {
           @foreach (var obstacle in game.Map.Obstacles)
           {
-            <div style=@($@"position: absolute; top: {obstacle.Y}px; left: {obstacle.X}px; width: {obstacle.Width}px; height: {obstacle.Height}px; background: #343a40; border: 2px solid #111827;")></div>
+            <div style=@($@"position: absolute; top: {obstacle.Y}px; left: {obstacle.X}px; width: {obstacle.Width}px; height: {obstacle.Height}px; background: #343a40; border: 2px solid #111827; pointer-events: none;")></div>
           }
         }
         @foreach (var tank in game.Tanks ?? [])
         {
-          <TankComponent Tank=tank />
+          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" />
           @if (showHitbox && game.MatchType == GameMatchTypes.DeveloperSimulation)
           {
             var area = Tank.GetCollisionArea(new Tank { PositionX = tank.PositionX, PositionY = tank.PositionY }, game.DeveloperSettings);

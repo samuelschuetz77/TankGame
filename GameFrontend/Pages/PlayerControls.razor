@@ -5,12 +5,13 @@
 @implements IDisposable
 
 <div>
-    Select box and control with "WASD"
+    Select box, drive with the arrow keys, aim with the mouse, and click to fire
 </div>
 <div tabindex="0" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
 style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden;")
-@onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
+@onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
+@onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
 >
     @ChildContent
 </div>
@@ -32,11 +33,15 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     public int BoardWidth { get; set; } = 750;
     [Parameter]
     public int BoardHeight { get; set; } = 750;
-    private bool lastDirectionBackwards { get; set; } = false;
-    private string[] movementKeys = ["w", "a", "s", "d", " "];
+    private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", " "];
     private const double inputCheckInterval = 0.01;
     private PlayerInputRequest? lastSentInput = null;
     private HashSet<string> pressedKeys = new HashSet<string>();
+    private int? aimX = null;
+    private int? aimY = null;
+    private bool mouseHeld = false;
+    // Set on press, cleared once sent, so a click shorter than one input check still fires
+    private bool pressPending = false;
     private Timer? sendInputTimer;
     protected override async Task OnInitializedAsync()
     {
@@ -55,35 +60,55 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     {
         pressedKeys.Remove(e.Key);
     }
+    private void handleMouseMove(MouseEventArgs e)
+    {
+        // Tanks and bullets ignore the mouse, so the offset is always relative to the board
+        aimX = (int)e.OffsetX;
+        aimY = (int)e.OffsetY;
+    }
+    private void handleMouseDown(MouseEventArgs e)
+    {
+        if (e.Button != 0)
+            return;
+        mouseHeld = true;
+        pressPending = true;
+    }
+    private void handleMouseUp(MouseEventArgs e)
+    {
+        mouseHeld = false;
+    }
     private void handleBlur()
     {
         pressedKeys = new HashSet<string>();
+        mouseHeld = false;
     }
     private void SendInputIfDifferent(object? state)
     {
         @if (PlayerId == null || GameName == null)
             return;
 
-        var forward = pressedKeys.Contains("w");
-        var left = pressedKeys.Contains("a") && !pressedKeys.Contains("d");
-        var right = !pressedKeys.Contains("a") && pressedKeys.Contains("d");
-        var backward = pressedKeys.Contains("s");
-        var shoot = pressedKeys.Contains(" ");
-        if (pressedKeys.Contains("s")) { lastDirectionBackwards = true; }
-        else if (pressedKeys.Contains("w")) { lastDirectionBackwards = false; }
+        var up = pressedKeys.Contains("ArrowUp");
+        var left = pressedKeys.Contains("ArrowLeft");
+        var right = pressedKeys.Contains("ArrowRight");
+        var down = pressedKeys.Contains("ArrowDown");
+        var shoot = pressedKeys.Contains(" ") || mouseHeld || pressPending;
 
         var movementMessage = new PlayerInputRequest
       {
         GameName = GameName,
         PlayerId = (Guid)PlayerId,
-        Forward = forward,
+        Up = up,
         Left = left,
         Right = right,
         Shoot = shoot,
-        Backward = backward,
-        LastDirectionBackwards = lastDirectionBackwards,
+        Down = down,
+        AimX = aimX,
+        AimY = aimY,
        };
       
+    // The press is now part of the shooting state, whether or not this message differs
+    if (shoot)
+      pressPending = false;
     if (movementMessage != lastSentInput)
     {
       lastSentInput = movementMessage;
