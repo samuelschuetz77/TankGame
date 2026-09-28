@@ -5,9 +5,9 @@
 @implements IDisposable
 
 <div>
-    Select box, drive with WASD or the arrow keys, aim with the mouse, and click to fire
+    Drive with WASD or the arrow keys, aim with the mouse, and click to fire
 </div>
-<div tabindex="0" 
+<div tabindex="0" @ref="board" 
 class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
 style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden;")
 @onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
@@ -43,6 +43,13 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     // Set on press, cleared once sent, so a click shorter than one input check still fires
     private bool pressPending = false;
     private Timer? sendInputTimer;
+    private ElementReference board;
+    // Focus the board as soon as it appears so keys work without clicking into it
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await board.FocusAsync();
+    }
     protected override async Task OnInitializedAsync()
     {
         sendInputTimer = new Timer(
