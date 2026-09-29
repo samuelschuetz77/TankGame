@@ -16,7 +16,7 @@ public class Lobby
     this.mapSource = mapSource ?? new FixedMapSource();
   }
 
-  public Game CreateGame(string name, string? mapName = null, string? matchType = null)
+  public Game CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null)
   {
     var newGame = new Game(context)
     {
@@ -24,7 +24,8 @@ public class Lobby
       MatchType = matchType == GameMatchTypes.DeveloperSimulation
         ? GameMatchTypes.DeveloperSimulation
         : GameMatchTypes.Multiplayer,
-      Map = mapSource.GetByName(mapName)
+      Map = mapSource.GetByName(mapName),
+      Settings = settings ?? new MatchSettings()
     };
 
     Games.Add(newGame);

@@ -8,6 +8,8 @@ public record GameState
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; init; } = new();
+    public MatchSettings Settings { get; init; } = new();
+    public Guid? CreatorId { get; init; }
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }

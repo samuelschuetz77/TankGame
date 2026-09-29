@@ -15,6 +15,10 @@ public class Game
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
     public GameMap Map { get; init; } = MapCatalog.DefaultMap;
+    private MatchSettings settings = new();
+    public MatchSettings Settings { get => settings; init => settings = MatchSettings.Sanitize(value); }
+    // First player to join; only they can change settings during the match
+    public Guid? CreatorId { get; private set; }
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
     public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
@@ -34,6 +38,8 @@ public class Game
             Name = Name,
             MatchType = MatchType,
             DeveloperSettings = DeveloperSettings,
+            Settings = Settings,
+            CreatorId = CreatorId,
             Map = Map,
             Tanks = Tanks.Select(t => new TankState()
             {
@@ -70,6 +76,7 @@ public class Game
             Angle = spawnPoint.Angle
         };
         Tanks = Tanks.Append(newTank);
+        CreatorId ??= newTank.Id;
         return newTank.Id;
         }
     }

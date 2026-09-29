@@ -16,7 +16,8 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  public async Task CreateGame(string name, string? mapName = null, string? matchType = null)
+  // SignalR doesn't fill optional parameters, so clients must send all four arguments
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -24,7 +25,7 @@ public class LobbyHub : Hub
       throw new Exception($"cannot create game, name already taken: {name}");
     }
 
-    var game = lobby.CreateGame(name, mapName, matchType);
+    var game = lobby.CreateGame(name, mapName, matchType, settings);
     Console.WriteLine($"created game: {name}");
 
     var playerId = game.JoinGame();

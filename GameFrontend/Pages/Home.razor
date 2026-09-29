@@ -28,6 +28,54 @@
       <option>@GameMatchTypes.DeveloperSimulation</option>
     </select>
   </div>
+  <fieldset class="mb-2">
+    <legend class="form-label">Match settings</legend>
+    <label class="form-label d-block">
+      Reload time
+      <select class="form-select" @bind=reloadTicks>
+        @for (var ticks = MatchSettings.MinReloadTicks; ticks <= MatchSettings.MaxReloadTicks; ticks++)
+        {
+          <option value="@ticks">@((ticks / 10.0).ToString("0.0")) s</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Bullet bounces
+      <select class="form-select" @bind=maxBounces>
+        @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+        {
+          <option value="@bounces">@bounces</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Health (hits to eliminate)
+      <select class="form-select" @bind=health>
+        @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
+        {
+          <option value="@hits">@hits</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Tank speed
+      <select class="form-select" @bind=speedMultiplier>
+        @foreach (var choice in MatchSettings.SpeedChoices)
+        {
+          <option value="@choice">@(choice)×</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Time limit
+      <select class="form-select" @bind=timeLimitMinutes>
+        @foreach (var minutes in MatchSettings.TimeLimitChoices)
+        {
+          <option value="@minutes">@(minutes == 0 ? "Off" : $"{minutes} min")</option>
+        }
+      </select>
+    </label>
+  </fieldset>
   <button class="btn btn-success" type="submit">Create Match</button>
 </form>
 
@@ -45,6 +93,11 @@
   private string userInputGameName = "";
   private string selectedMapName = MapCatalog.DefaultMap.Name;
   private string selectedMatchType = "Multiplayer";
+  private int reloadTicks = new MatchSettings().ReloadTicks;
+  private int maxBounces = new MatchSettings().MaxBounces;
+  private int health = new MatchSettings().Health;
+  private double speedMultiplier = new MatchSettings().SpeedMultiplier;
+  private int timeLimitMinutes = new MatchSettings().TimeLimitMinutes;
 
   private IEnumerable<GameState> games = [];
 
@@ -76,7 +129,15 @@
   {
     Console.WriteLine("sending message to create game");
     
-    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName, selectedMapName, selectedMatchType);
+    var settings = new MatchSettings
+    {
+      ReloadTicks = reloadTicks,
+      MaxBounces = maxBounces,
+      Health = health,
+      SpeedMultiplier = speedMultiplier,
+      TimeLimitMinutes = timeLimitMinutes
+    };
+    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName, selectedMapName, selectedMatchType, settings);
     userInputGameName = "";
   }
   
