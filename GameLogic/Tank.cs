@@ -19,6 +19,11 @@ public record Tank
     public int? AimX { get; init; }
     public int? AimY { get; init; }
     public int TurretAngle { get; init; } = -45;
+    // Hits left before elimination
+    public int Health { get; init; } = MatchSettings.DefaultHealth;
+    public bool Eliminated { get; init; }
+    // Hits on other tanks; breaks health ties when time runs out
+    public int HitsLanded { get; init; }
     //public Bullet Bullet { get; set; } = new();
 
     // Distance from the turret pivot to the muzzle, matching the drawn barrel
@@ -74,7 +79,8 @@ public record Tank
             // Bullet position is its top-left corner; center it on the muzzle
             PositionX = muzzleX - Bullet.BulletSize / 2,
             PositionY = muzzleY - Bullet.BulletSize / 2,
-            Angle = tank.TurretAngle
+            Angle = tank.TurretAngle,
+            OwnerId = tank.Id,
         };
     }
 

@@ -41,7 +41,14 @@ public record Obstacle(int X, int Y, int Width, int Height)
         Y + Height > area.Y;
 }
 
-public record RectangleArea(int X, int Y, int Width, int Height);
+public record RectangleArea(int X, int Y, int Width, int Height)
+{
+    public bool Intersects(RectangleArea other) =>
+        X < other.X + other.Width &&
+        X + Width > other.X &&
+        Y < other.Y + other.Height &&
+        Y + Height > other.Y;
+}
 
 public interface IMapSource
 {

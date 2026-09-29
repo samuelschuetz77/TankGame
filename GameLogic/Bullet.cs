@@ -12,6 +12,8 @@ namespace GameLogic
         public int PositionX { get; init; }
         public int PositionY { get; init; }
         public int Angle { get; init; }
+        // Tank that fired it; hitting another tank counts as a hit landed for this tank
+        public Guid OwnerId { get; init; }
         private const int Speed = 20;
         public const int BulletSize = 10;
 
