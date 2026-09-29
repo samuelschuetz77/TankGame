@@ -70,10 +70,14 @@ public class GameLoopRunner
                 .Where(bullet => bullet is not null)
                 .Cast<Bullet>()
                 .ToArray();
-            var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings);
-            game.Tanks = tanks;
-            game.Bullets = bullets;
-            game.ApplyResult(Combat.DecideResult(tanks, game.TicksLeft));
+            // No damage until the 2nd player joins: a creator practising alone can't eliminate themselves
+            if (game.StartedAtTick is not null)
+            {
+                var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings);
+                game.Tanks = tanks;
+                game.Bullets = bullets;
+                game.ApplyResult(Combat.DecideResult(tanks, game.TicksLeft));
+            }
         }
         }
 

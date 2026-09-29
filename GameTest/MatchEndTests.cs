@@ -101,6 +101,24 @@ public class MatchEndTests
     }
 
     [Fact]
+    public async Task ShotsDoNoDamageBeforeTheSecondPlayerJoins()
+    {
+        var game = TestGames.NewGame(new MatchSettings { Health = 1, MaxBounces = 1 });
+        var creator = game.JoinGame();
+        var (_, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
+
+        // Fire at the left wall; the bounce comes straight back through the creator's tank
+        game.ReceiveUserInput(TestGames.Input(creator, shoot: true, aimX: 0, aimY: centerY));
+        for (var tick = 0; tick < 20; tick++)
+            await game.loopRunner.ProcessGameTick();
+        game.JoinGame();
+        await game.loopRunner.ProcessGameTick();
+
+        Assert.False(game.Tanks.Single(t => t.Id == creator).Eliminated);
+        Assert.Equal(GameStatus.Playing, game.Status);
+    }
+
+    [Fact]
     public void NewTanksStartWithTheMatchHealth()
     {
         var game = TestGames.NewGame(new MatchSettings { Health = 7 });
