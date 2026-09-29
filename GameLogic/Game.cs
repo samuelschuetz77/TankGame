@@ -170,6 +170,17 @@ public class Game
         };
     }
 
+    // Only the creator can change settings; health and time limit stay as the match started
+    public void UpdateMatchSettings(Guid playerId, MatchSettings incoming)
+    {
+        lock (StateLock)
+        {
+            if (playerId != CreatorId || Status == GameStatus.Ended)
+                return;
+            settings = MatchSettings.Sanitize(incoming).WithLockedFrom(settings);
+        }
+    }
+
     internal void ApplyResult(MatchResult result)
     {
         if (!result.Ended)

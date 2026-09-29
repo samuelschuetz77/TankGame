@@ -99,6 +99,44 @@
         </label>
       </aside>
     }
+
+    @if (game.CreatorId == PlayerId)
+    {
+      <aside style="width: 220px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
+        <h3 style="font-size: 1rem; margin-bottom: 12px;">Match settings</h3>
+        <label class="form-label d-block">
+          Tank speed
+          <select class="form-select" value="@game.Settings.SpeedMultiplier" @onchange="SetSpeedMultiplier">
+            @foreach (var choice in MatchSettings.SpeedChoices)
+            {
+              <option value="@choice">@(choice)×</option>
+            }
+          </select>
+        </label>
+        <label class="form-label d-block">
+          Reload time
+          <select class="form-select" value="@game.Settings.ReloadTicks" @onchange="SetReloadTicks">
+            @for (var ticks = MatchSettings.MinReloadTicks; ticks <= MatchSettings.MaxReloadTicks; ticks++)
+            {
+              <option value="@ticks">@((ticks / 10.0).ToString("0.0")) s</option>
+            }
+          </select>
+        </label>
+        <label class="form-label d-block">
+          Bullet bounces
+          <select class="form-select" value="@game.Settings.MaxBounces" @onchange="SetMaxBounces">
+            @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+            {
+              <option value="@bounces">@bounces</option>
+            }
+          </select>
+        </label>
+        <p class="small text-muted mb-0">
+          Locked: health @game.Settings.Health,
+          time limit @(game.Settings.TimeLimitMinutes == 0 ? "off" : $"{game.Settings.TimeLimitMinutes} min")
+        </p>
+      </aside>
+    }
   </div>
 }
 
@@ -225,6 +263,21 @@
     showHitbox = false;
     LoadDeveloperSettings(new DeveloperGameSettings());
     await SendDeveloperSettings();
+  }
+
+  private Task SetSpeedMultiplier(ChangeEventArgs e) =>
+    SendMatchSettings(game!.Settings with { SpeedMultiplier = ReadDouble(e, game.Settings.SpeedMultiplier) });
+
+  private Task SetReloadTicks(ChangeEventArgs e) =>
+    SendMatchSettings(game!.Settings with { ReloadTicks = ReadInt(e, game.Settings.ReloadTicks) });
+
+  private Task SetMaxBounces(ChangeEventArgs e) =>
+    SendMatchSettings(game!.Settings with { MaxBounces = ReadInt(e, game.Settings.MaxBounces) });
+
+  // The server checks that this player is the creator and echoes the result in the next update
+  private async Task SendMatchSettings(MatchSettings settings)
+  {
+    await signalR.HubConnection?.SendAsync(Messages.UpdateMatchSettings, GameName, PlayerId, settings)!;
   }
 
   private async Task SetSlideAlongWalls(ChangeEventArgs e)

@@ -78,6 +78,13 @@ public class LobbyHub : Hub
     await game.BroadcastUpdate();
   }
 
+  public async Task UpdateMatchSettings(string gameName, Guid playerId, MatchSettings settings)
+  {
+    var game = lobby.Games.First(g => g.Name == gameName);
+    game.UpdateMatchSettings(playerId, settings);
+    await game.BroadcastUpdate();
+  }
+
   public override async Task OnDisconnectedAsync(Exception? exception)
   {
     string? connectionId = Context.ConnectionId;
