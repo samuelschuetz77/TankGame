@@ -61,7 +61,8 @@ public class GameLoopRunner
         if (game.Status != GameStatus.Ended)
         {
             game.Tick++;
-            game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, game.DeveloperSettings)).ToArray();
+            var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
+            game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement)).ToArray();
             game.Bullets = game.Bullets
                 .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
                 .Where(bullet => bullet is not null)

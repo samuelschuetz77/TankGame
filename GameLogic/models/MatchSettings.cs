@@ -36,4 +36,12 @@ public record MatchSettings
     // Health and the time limit can't change once the match is running
     public MatchSettings WithLockedFrom(MatchSettings current) =>
         this with { Health = current.Health, TimeLimitMinutes = current.TimeLimitMinutes };
+
+    // Tank speed scales top speed and acceleration together so handling feels the same; turning is unchanged
+    public DeveloperGameSettings ScaleMovement(DeveloperGameSettings baseSettings) => baseSettings with
+    {
+        MaxSpeed = Math.Max(1, (int)Math.Round(baseSettings.MaxSpeed * SpeedMultiplier)),
+        ForwardAcceleration = Math.Max(1, (int)Math.Round(baseSettings.ForwardAcceleration * SpeedMultiplier)),
+        BrakeAcceleration = (int)Math.Round(baseSettings.BrakeAcceleration * SpeedMultiplier),
+    };
 }
