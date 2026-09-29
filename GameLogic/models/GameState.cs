@@ -11,6 +11,8 @@ public record GameState
     public MatchSettings Settings { get; init; } = new();
     public Guid? CreatorId { get; init; }
     public Guid? WinnerId { get; init; }
+    // Null when there's no time limit or it hasn't started
+    public int? SecondsLeft { get; init; }
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }

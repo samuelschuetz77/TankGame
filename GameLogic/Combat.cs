@@ -40,8 +40,9 @@ public static class Combat
         return (tankList.ToArray(), flying.ToArray());
     }
 
-    // A match needs 2 players before it can end, or the creator would win alone
-    public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks)
+    // A match needs 2 players before it can end, or the creator would win alone.
+    // ticksLeft is null when there's no time limit (or it hasn't started)
+    public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks, int? ticksLeft)
     {
         if (tanks.Count < 2)
             return MatchResult.Ongoing;
@@ -51,6 +52,17 @@ public static class Combat
             return new MatchResult(true, null);
         if (alive.Count == 1)
             return new MatchResult(true, alive[0].Id);
+        if (ticksLeft is <= 0)
+            return ByHealthThenHits(alive);
         return MatchResult.Ongoing;
+    }
+
+    // Time ran out: most health wins, then most hits landed; a full tie is a draw
+    private static MatchResult ByHealthThenHits(List<Tank> alive)
+    {
+        var ranked = alive.OrderByDescending(tank => tank.Health).ThenByDescending(tank => tank.HitsLanded).ToList();
+        var (first, second) = (ranked[0], ranked[1]);
+        var tied = first.Health == second.Health && first.HitsLanded == second.HitsLanded;
+        return new MatchResult(true, tied ? null : first.Id);
     }
 }

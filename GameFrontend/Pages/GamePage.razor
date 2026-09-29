@@ -12,6 +12,10 @@
       <div class="d-flex align-items-center gap-2 mb-2">
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
+        @if (game.SecondsLeft is int secondsLeft)
+        {
+          <span>Time left: @(secondsLeft / 60):@((secondsLeft % 60).ToString("00"))</span>
+        }
       </div>
       @if (game.Status == GameStatus.Ended)
       {

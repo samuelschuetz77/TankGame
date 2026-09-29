@@ -6,6 +6,8 @@ public class GameLoopRunner
     private object loopLock { get; } = new object();
     private bool loopIsRunning { get; set; } = false;
     public static double TickIntervalScalar = 10;
+    // Matches the default 100 ms tick interval
+    public const int TicksPerSecond = 10;
 
     private ReplaySaver? saver;
     public GameLoopRunner(Game game)
@@ -71,7 +73,7 @@ public class GameLoopRunner
             var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings);
             game.Tanks = tanks;
             game.Bullets = bullets;
-            game.ApplyResult(Combat.DecideResult(tanks));
+            game.ApplyResult(Combat.DecideResult(tanks, game.TicksLeft));
         }
         }
 

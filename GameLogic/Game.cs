@@ -13,6 +13,11 @@ public class Game
     public Guid? WinnerId { get; private set; }
     // Game loop ticks processed so far (10 per second)
     public int Tick { get; internal set; }
+    // Tick when the 2nd player joined; the time limit counts from here
+    public int? StartedAtTick { get; private set; }
+    public int? TicksLeft => Settings.TimeLimitMinutes == 0 || StartedAtTick is null
+        ? null
+        : StartedAtTick.Value + Settings.TimeLimitMinutes * 60 * GameLoopRunner.TicksPerSecond - Tick;
     //public event Action? OnUpdate;
     public readonly ConcurrentDictionary<string, byte> ConnectedClients = new();
     public string? Name { get; init; }
@@ -45,6 +50,9 @@ public class Game
             Settings = Settings,
             CreatorId = CreatorId,
             WinnerId = WinnerId,
+            SecondsLeft = TicksLeft is int ticksLeft
+                ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
+                : null,
             Map = Map,
             Tanks = Tanks.Select(t => new TankState()
             {
@@ -89,6 +97,8 @@ public class Game
         };
         Tanks = Tanks.Append(newTank);
         CreatorId ??= newTank.Id;
+        if (Tanks.Count() == 2)
+            StartedAtTick = Tick;
         return newTank.Id;
         }
     }

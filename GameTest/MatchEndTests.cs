@@ -8,8 +8,8 @@ public class MatchEndTests
     [Fact]
     public void OnePlayerNeverEndsTheMatch()
     {
-        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([new Tank()]));
-        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([new Tank { Eliminated = true }]));
+        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([new Tank()], null));
+        Assert.Equal(MatchResult.Ongoing, Combat.DecideResult([new Tank { Eliminated = true }], null));
     }
 
     [Fact]
@@ -18,21 +18,21 @@ public class MatchEndTests
         var winner = new Tank();
         var loser = new Tank { Eliminated = true };
 
-        Assert.Equal(new MatchResult(true, winner.Id), Combat.DecideResult([winner, loser]));
+        Assert.Equal(new MatchResult(true, winner.Id), Combat.DecideResult([winner, loser], null));
     }
 
     [Fact]
     public void EveryoneEliminatedIsADraw()
     {
         Assert.Equal(new MatchResult(true, null),
-            Combat.DecideResult([new Tank { Eliminated = true }, new Tank { Eliminated = true }]));
+            Combat.DecideResult([new Tank { Eliminated = true }, new Tank { Eliminated = true }], null));
     }
 
     [Fact]
     public void TwoTanksLeftKeepPlaying()
     {
         Assert.Equal(MatchResult.Ongoing,
-            Combat.DecideResult([new Tank(), new Tank(), new Tank { Eliminated = true }]));
+            Combat.DecideResult([new Tank(), new Tank(), new Tank { Eliminated = true }], null));
     }
 
     private static async Task<(Game Game, Guid A, Guid B)> FinishedDuel()
