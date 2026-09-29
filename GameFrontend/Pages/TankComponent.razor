@@ -39,11 +39,11 @@
 }
 
 
-@if (tank != null)
+@if (tank != null && !tank.Eliminated)
 {
     <div class="tank-sprite" style=@($"{transitionConst}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
         <div title="@tank.Id" style="position: absolute; bottom: 100%; left: 0; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; line-height: 14px;">
-            @tank.Id.ToString()[^5..]
+            @tank.Id.ToString()[^5..] ♥@tank.Health
         </div>
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>

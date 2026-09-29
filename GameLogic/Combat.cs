@@ -1,5 +1,11 @@
 namespace GameLogic;
 
+// WinnerId is null when an ended match is a draw
+public record MatchResult(bool Ended, Guid? WinnerId)
+{
+    public static readonly MatchResult Ongoing = new(false, null);
+}
+
 public static class Combat
 {
     // Each bullet hits at most one tank (the first it overlaps) and is used up;
@@ -32,5 +38,19 @@ public static class Combat
         }
 
         return (tankList.ToArray(), flying.ToArray());
+    }
+
+    // A match needs 2 players before it can end, or the creator would win alone
+    public static MatchResult DecideResult(IReadOnlyCollection<Tank> tanks)
+    {
+        if (tanks.Count < 2)
+            return MatchResult.Ongoing;
+
+        var alive = tanks.Where(tank => !tank.Eliminated).ToList();
+        if (alive.Count == 0)
+            return new MatchResult(true, null);
+        if (alive.Count == 1)
+            return new MatchResult(true, alive[0].Id);
+        return MatchResult.Ongoing;
     }
 }

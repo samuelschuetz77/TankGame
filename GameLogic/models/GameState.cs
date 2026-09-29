@@ -10,6 +10,7 @@ public record GameState
     public DeveloperGameSettings DeveloperSettings { get; init; } = new();
     public MatchSettings Settings { get; init; } = new();
     public Guid? CreatorId { get; init; }
+    public Guid? WinnerId { get; init; }
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
@@ -42,6 +43,9 @@ public record TankState
     public int PositionY { get; init; }
     public int Angle { get; init; }
     public int TurretAngle { get; init; }
+    public int Health { get; init; }
+    public bool Eliminated { get; init; }
+    public int HitsLanded { get; init; }
 }
 
 public record BulletState

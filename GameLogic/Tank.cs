@@ -41,6 +41,9 @@ public record Tank
 
     public static Tank ProcessTankMovement(Tank tank, GameMap map, DeveloperGameSettings settings)
     {
+        if (tank.Eliminated)
+            return tank;
+
         var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
         var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);

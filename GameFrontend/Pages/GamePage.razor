@@ -13,6 +13,14 @@
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
       </div>
+      @if (game.Status == GameStatus.Ended)
+      {
+        <div class="alert alert-info py-2 mb-2">
+          @(game.WinnerId is null ? "Draw!"
+            : game.WinnerId == PlayerId ? "You win!"
+            : $"{game.WinnerId.Value.ToString()[^5..]} wins")
+        </div>
+      }
       <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.Width ?? 750)" BoardHeight="@(game.Map?.Height ?? 750)">
         @if (game.Map?.Obstacles != null)
         {

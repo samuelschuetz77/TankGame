@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using GameLogic
+@using GameLogic.Game
 @inject NavigationManager Navigation
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Text.Json
@@ -82,7 +83,7 @@
 @foreach (var game in games)
 {
   <div>
-  @game.Name (@game.Map?.Name, @game.MatchType)
+  @game.Name (@game.Map?.Name, @game.MatchType)@(game.Status == GameStatus.Ended ? " - ended" : "")
   <button class="btn btn-primary" @onclick="() => JoinGame(game.Name)">Join Game</button>
 </div>
 }

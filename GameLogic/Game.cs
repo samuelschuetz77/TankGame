@@ -8,7 +8,11 @@ public class Game
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
 
-    public GameStatus Status => GameStatus.Playing;
+    public GameStatus Status { get; private set; } = GameStatus.Playing;
+    // Null while playing, and also when an ended match is a draw
+    public Guid? WinnerId { get; private set; }
+    // Game loop ticks processed so far (10 per second)
+    public int Tick { get; internal set; }
     //public event Action? OnUpdate;
     public readonly ConcurrentDictionary<string, byte> ConnectedClients = new();
     public string? Name { get; init; }
@@ -40,6 +44,7 @@ public class Game
             DeveloperSettings = DeveloperSettings,
             Settings = Settings,
             CreatorId = CreatorId,
+            WinnerId = WinnerId,
             Map = Map,
             Tanks = Tanks.Select(t => new TankState()
             {
@@ -48,6 +53,9 @@ public class Game
                 PositionY = t.PositionY,
                 Angle = t.Angle,
                 TurretAngle = t.TurretAngle,
+                Health = t.Health,
+                Eliminated = t.Eliminated,
+                HitsLanded = t.HitsLanded,
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
             {
@@ -68,12 +76,16 @@ public class Game
     {
         lock (StateLock)
         {
+        if (Status == GameStatus.Ended)
+            throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
+
         var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
         var newTank = new Tank
         {
             PositionX = spawnPoint.X,
             PositionY = spawnPoint.Y,
-            Angle = spawnPoint.Angle
+            Angle = spawnPoint.Angle,
+            Health = Settings.Health
         };
         Tanks = Tanks.Append(newTank);
         CreatorId ??= newTank.Id;
@@ -85,9 +97,13 @@ public class Game
     {
         lock (StateLock)
         {
+        if (Status == GameStatus.Ended)
+            return;
+
         Tanks = Tanks.Select(t =>
         {
-            if (t.Id == request.PlayerId)
+            // Eliminated players keep watching but can't drive or shoot
+            if (t.Id == request.PlayerId && !t.Eliminated)
             {
 
                 var updatedTank = t with
@@ -141,6 +157,14 @@ public class Game
             TurnDegrees = Math.Clamp(settings.TurnDegrees, 1, 180),
             BackwardSpeedMultiplier = Math.Clamp(settings.BackwardSpeedMultiplier, 0.1, 1.5)
         };
+    }
+
+    internal void ApplyResult(MatchResult result)
+    {
+        if (!result.Ended)
+            return;
+        Status = GameStatus.Ended;
+        WinnerId = result.WinnerId;
     }
 
 }
