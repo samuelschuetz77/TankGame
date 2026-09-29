@@ -118,10 +118,11 @@ public class Game
                 };
                 updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
 
-                // Fire once per press; holding the button (or aiming while held) doesn't spray
-                if (updatedTank.Shooting && !t.Shooting)
+                // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
+                if (updatedTank.Shooting && !t.Shooting && t.ReloadTicksLeft == 0)
                 {
                     Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings));
+                    updatedTank = updatedTank with { ReloadTicksLeft = Settings.ReloadTicks };
                 }
 
                 //if (updatedTank.Bullet != null)
