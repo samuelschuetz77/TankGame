@@ -121,7 +121,7 @@ public class Game
                 // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
                 if (updatedTank.Shooting && !t.Shooting && t.ReloadTicksLeft == 0)
                 {
-                    Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings));
+                    Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces));
                     updatedTank = updatedTank with { ReloadTicksLeft = Settings.ReloadTicks };
                 }
 
