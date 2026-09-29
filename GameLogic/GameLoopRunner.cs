@@ -73,10 +73,10 @@ public class GameLoopRunner
             // No damage until the 2nd player joins: a creator practising alone can't eliminate themselves
             if (game.StartedAtTick is not null)
             {
-                var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings);
-                game.Tanks = tanks;
+                var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings, game.Settings);
+                game.Tanks = Combat.TickRespawns(tanks, game.Map, game.Settings, Random.Shared);
                 game.Bullets = bullets;
-                game.ApplyResult(Combat.DecideResult(tanks, game.TicksLeft));
+                game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
             }
         }
         }

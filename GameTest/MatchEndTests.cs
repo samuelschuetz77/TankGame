@@ -37,7 +37,7 @@ public class MatchEndTests
 
     private static async Task<(Game Game, Guid A, Guid B)> FinishedDuel()
     {
-        var game = TestGames.NewGame(new MatchSettings { Health = 1 });
+        var game = TestGames.NewGame(new MatchSettings { Health = 1, Lives = 1 });
         var a = game.JoinGame();
         var b = game.JoinGame();
         TestGames.ShootAt(game, a, b);
@@ -81,7 +81,7 @@ public class MatchEndTests
     [Fact]
     public async Task EliminatedTankCannotShootOrMove()
     {
-        var game = TestGames.NewGame(new MatchSettings { Health = 1 });
+        var game = TestGames.NewGame(new MatchSettings { Health = 1, Lives = 1 });
         var a = game.JoinGame();
         var b = game.JoinGame();
         var c = game.JoinGame();
@@ -103,7 +103,7 @@ public class MatchEndTests
     [Fact]
     public async Task ShotsDoNoDamageBeforeTheSecondPlayerJoins()
     {
-        var game = TestGames.NewGame(new MatchSettings { Health = 1, MaxBounces = 1 });
+        var game = TestGames.NewGame(new MatchSettings { Health = 1, Lives = 1, MaxBounces = 1 });
         var creator = game.JoinGame();
         var (_, centerY) = Tank.GetCenter(game.Tanks.Single(), game.DeveloperSettings);
 

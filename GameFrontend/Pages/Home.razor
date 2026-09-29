@@ -59,6 +59,24 @@
       </select>
     </label>
     <label class="form-label d-block">
+      Lives (deaths before you're out for good)
+      <select class="form-select" @bind=lives>
+        @for (var count = MatchSettings.MinLives; count <= MatchSettings.MaxLives; count++)
+        {
+          <option value="@count">@count</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Respawn delay
+      <select class="form-select" @bind=respawnSeconds>
+        @for (var seconds = 0; seconds <= MatchSettings.MaxRespawnSeconds; seconds++)
+        {
+          <option value="@seconds">@seconds s</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
       Tank speed
       <select class="form-select" @bind=speedMultiplier>
         @foreach (var choice in MatchSettings.SpeedChoices)
@@ -80,13 +98,49 @@
   <button class="btn btn-success" type="submit">Create Match</button>
 </form>
 
-@foreach (var game in games)
+<h4 class="mt-4">Games in progress</h4>
+@if (!games.Any())
 {
-  <div>
-  @game.Name (@game.Map?.Name, @game.MatchType)@(game.Status == GameStatus.Ended ? " - ended" : "")
-  <button class="btn btn-primary" @onclick="() => JoinGame(game.Name)">Join Game</button>
-</div>
+  <p class="text-muted">No games yet. Create one above.</p>
 }
+<div class="d-flex flex-wrap gap-3">
+  @foreach (var game in games)
+  {
+    var ended = game.Status == GameStatus.Ended;
+    var settings = game.Settings;
+    <div class="card" style="width: 300px;">
+      @if (game.Map is { } map)
+      {
+        @* Miniature of the map: obstacles in dark grey, spawn points as dots *@
+        <svg viewBox="0 0 @map.Width @map.Height" class="card-img-top" style="background: #e9ecef; display: block;">
+          @foreach (var obstacle in map.Obstacles)
+          {
+            <rect x="@obstacle.X" y="@obstacle.Y" width="@obstacle.Width" height="@obstacle.Height" fill="#343a40" />
+          }
+          @foreach (var spawn in map.SpawnPoints)
+          {
+            <circle cx="@(spawn.X + Tank.Size / 2)" cy="@(spawn.Y + Tank.Size / 2)" r="16" fill="#198754" />
+          }
+        </svg>
+      }
+      <div class="card-body">
+        <h5 class="card-title d-flex justify-content-between align-items-center">
+          @game.Name
+          <span class="badge @(ended ? "bg-secondary" : "bg-success")">@(ended ? "Ended" : "In progress")</span>
+        </h5>
+        <h6 class="card-subtitle mb-2 text-muted">@(game.Map?.Name) · @game.MatchType · @(game.Tanks?.Count() ?? 0) player@((game.Tanks?.Count() ?? 0) == 1 ? "" : "s")</h6>
+        <ul class="list-unstyled small mb-3">
+          <li>Health: @settings.Health hit@(settings.Health == 1 ? "" : "s")</li>
+          <li>Lives: @settings.Lives · respawn after @settings.RespawnSeconds s</li>
+          <li>Reload: @((settings.ReloadTicks / 10.0).ToString("0.0")) s · bounces: @settings.MaxBounces</li>
+          <li>Tank speed: @(settings.SpeedMultiplier)×</li>
+          <li>Time limit: @(settings.TimeLimitMinutes == 0 ? "off" : $"{settings.TimeLimitMinutes} min")</li>
+        </ul>
+        <button class="btn btn-primary" disabled="@ended" @onclick="() => JoinGame(game.Name)">Join Game</button>
+      </div>
+    </div>
+  }
+</div>
 
 
 @code {
@@ -97,6 +151,8 @@
   private int reloadTicks = new MatchSettings().ReloadTicks;
   private int maxBounces = new MatchSettings().MaxBounces;
   private int health = new MatchSettings().Health;
+  private int lives = new MatchSettings().Lives;
+  private int respawnSeconds = new MatchSettings().RespawnSeconds;
   private double speedMultiplier = new MatchSettings().SpeedMultiplier;
   private int timeLimitMinutes = new MatchSettings().TimeLimitMinutes;
 
@@ -135,6 +191,8 @@
       ReloadTicks = reloadTicks,
       MaxBounces = maxBounces,
       Health = health,
+      Lives = lives,
+      RespawnSeconds = respawnSeconds,
       SpeedMultiplier = speedMultiplier,
       TimeLimitMinutes = timeLimitMinutes
     };

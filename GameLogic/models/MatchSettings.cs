@@ -9,6 +9,10 @@ public record MatchSettings
     public const int MaxBouncesAllowed = 5;
     public const int MinHealth = 1;
     public const int MaxHealth = 10;
+    public const int DefaultLives = 5;
+    public const int MinLives = 1;
+    public const int MaxLives = 10;
+    public const int MaxRespawnSeconds = 15;
     public static readonly double[] SpeedChoices = [0.5, 0.75, 1, 1.25, 1.5, 2];
     // 0 = no time limit
     public static readonly int[] TimeLimitChoices = [0, 1, 2, 3, 5, 10];
@@ -17,6 +21,10 @@ public record MatchSettings
     public int ReloadTicks { get; init; } = 10;
     public int MaxBounces { get; init; } = 1;
     public int Health { get; init; } = DefaultHealth;
+    // Deaths a tank can take; the last death is permanent
+    public int Lives { get; init; } = DefaultLives;
+    // Wait between dying and coming back (0 = next tick)
+    public int RespawnSeconds { get; init; } = 5;
     public double SpeedMultiplier { get; init; } = 1;
     public int TimeLimitMinutes { get; init; } = 0;
 
@@ -26,6 +34,8 @@ public record MatchSettings
         ReloadTicks = Math.Clamp(incoming.ReloadTicks, MinReloadTicks, MaxReloadTicks),
         MaxBounces = Math.Clamp(incoming.MaxBounces, 0, MaxBouncesAllowed),
         Health = Math.Clamp(incoming.Health, MinHealth, MaxHealth),
+        Lives = Math.Clamp(incoming.Lives, MinLives, MaxLives),
+        RespawnSeconds = Math.Clamp(incoming.RespawnSeconds, 0, MaxRespawnSeconds),
         SpeedMultiplier = double.IsFinite(incoming.SpeedMultiplier)
             ? SpeedChoices.MinBy(choice => Math.Abs(choice - incoming.SpeedMultiplier))
             : 1,
@@ -33,9 +43,9 @@ public record MatchSettings
         TimeLimitMinutes = TimeLimitChoices.MinBy(choice => Math.Abs((long)choice - incoming.TimeLimitMinutes)),
     };
 
-    // Health and the time limit can't change once the match is running
+    // Health, lives and the time limit can't change once the match is running
     public MatchSettings WithLockedFrom(MatchSettings current) =>
-        this with { Health = current.Health, TimeLimitMinutes = current.TimeLimitMinutes };
+        this with { Health = current.Health, Lives = current.Lives, TimeLimitMinutes = current.TimeLimitMinutes };
 
     // Tank speed scales top speed and acceleration together so handling feels the same; turning is unchanged
     public DeveloperGameSettings ScaleMovement(DeveloperGameSettings baseSettings) => baseSettings with

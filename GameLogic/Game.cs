@@ -63,6 +63,8 @@ public class Game
                 TurretAngle = t.TurretAngle,
                 Health = t.Health,
                 Eliminated = t.Eliminated,
+                Deaths = t.Deaths,
+                RespawnTicksLeft = t.RespawnTicksLeft,
                 HitsLanded = t.HitsLanded,
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
@@ -112,8 +114,8 @@ public class Game
 
         Tanks = Tanks.Select(t =>
         {
-            // Eliminated players keep watching but can't drive or shoot
-            if (t.Id == request.PlayerId && !t.Eliminated)
+            // Eliminated (or respawning) players keep watching but can't drive or shoot
+            if (t.Id == request.PlayerId && !t.Eliminated && !t.Respawning)
             {
 
                 var updatedTank = t with

@@ -47,7 +47,11 @@ public record TankState
     public int TurretAngle { get; init; }
     public int Health { get; init; }
     public bool Eliminated { get; init; }
+    public int Deaths { get; init; }
+    public int RespawnTicksLeft { get; init; }
     public int HitsLanded { get; init; }
+    // Destroyed with lives left, waiting to come back
+    public bool Respawning => Health <= 0 && !Eliminated;
 }
 
 public record BulletState

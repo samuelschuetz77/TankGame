@@ -21,7 +21,14 @@ public record Tank
     public int TurretAngle { get; init; } = -45;
     // Hits left before elimination
     public int Health { get; init; } = MatchSettings.DefaultHealth;
+    // Out for good: used up every life
     public bool Eliminated { get; init; }
+    // Times this tank has been destroyed
+    public int Deaths { get; init; }
+    // Ticks until a destroyed tank comes back
+    public int RespawnTicksLeft { get; init; }
+    // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
+    public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
     // Ticks until the tank can fire again; 0 = ready
@@ -43,7 +50,7 @@ public record Tank
 
     public static Tank ProcessTankMovement(Tank tank, GameMap map, DeveloperGameSettings settings)
     {
-        if (tank.Eliminated)
+        if (tank.Eliminated || tank.Respawning)
             return tank;
 
         var reloading = tank with { ReloadTicksLeft = Math.Max(0, tank.ReloadTicksLeft - 1) };
