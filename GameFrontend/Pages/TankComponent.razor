@@ -12,7 +12,6 @@
     [Parameter]
     public int VisualTopOffset { get; set; } = new DeveloperGameSettings().VisualTopOffset;
 
-    private const string transitionConst = "transition: all 0.1s linear";
     // Kenney sprites face down (+90deg); game angles use 0deg = right
     private const int spriteFacingOffset = -90;
     // Center of the round turret base in the hull image, which the barrel pivots on
@@ -53,7 +52,7 @@
 }
 else if (tank != null && !tank.Eliminated)
 {
-    <div class="tank-sprite" style=@($"{transitionConst}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
+    <div class="tank-sprite" style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
         @* Health bar on top of the tank; the id and lives sit underneath so neither hides the other *@
         <div style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
             <div style=@($"height: 100%; width: {Math.Clamp(tank.Health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
@@ -64,9 +63,9 @@ else if (tank != null && !tank.Eliminated)
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>
             <img src=@($"images/PNG/Tanks/tank{color}.png") alt=""
-                 style=@($"{transitionConst}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
+                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
             <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
-                 style=@($"{transitionConst}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
+                 style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
         </div>
     </div>
 }
