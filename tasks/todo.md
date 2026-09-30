@@ -37,4 +37,4 @@ Arrow keys drive the hull (unchanged). Mouse position aims the turret. Mouse cli
 - [x] Existing tests still pass (BulletMotion was already failing on main; that's for the shooting step)
 - [x] Run the app: drive with arrows, aim with mouse (verified in Edge)
 - [x] Click to fire verified in Edge (quick click, held + sweep = 1 bullet, 3 clicks = 3 bullets)
-- [ ] Two tabs: bullets hitting other tanks (no hit detection yet)
+- [x] Two tabs: bullets hitting other tanks (verified with two clients; see GameTest/CombatTests.cs and ProjectileTests.cs)
