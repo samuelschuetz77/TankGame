@@ -39,7 +39,7 @@
           @if (showHitbox && game.MatchType == GameMatchTypes.DeveloperSimulation)
           {
             var area = Tank.GetCollisionArea(new Tank { PositionX = tank.PositionX, PositionY = tank.PositionY }, game.DeveloperSettings);
-            <div class="tank-hitbox" style="@($"position: absolute; left: {area.X}px; top: {area.Y}px; width: {area.Width}px; height: {area.Height}px; border: 1px solid #e00060; background: #e0006018; pointer-events: none; z-index: 10;")"></div>
+            <div class="tank-hitbox" style="@($"transition: all 0.1s linear; position: absolute; left: {area.X}px; top: {area.Y}px; width: {area.Width}px; height: {area.Height}px; border: 1px solid #e00060; background: #e0006018; pointer-events: none; z-index: 10;")"></div>
           }
         }
         <BulletsComponent Bullets="@(game.Bullets ?? [])" />
