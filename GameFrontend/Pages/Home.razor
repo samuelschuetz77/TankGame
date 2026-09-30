@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using GameLogic
 @using GameLogic.Game
 @inject NavigationManager Navigation
@@ -6,167 +6,405 @@
 @using System.Text.Json
 @inject SignalRService signalR;
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Tanks · Command Center</PageTitle>
 
-<form @onsubmit:preventDefault=true @onsubmit=CreateGame>
-  <label class="form-label">
-    New Game <input class="form-control" type="text" @bind=userInputGameName>
-  </label>
-  <label class="form-label d-block">
-    Map
-    <select class="form-select" @bind=selectedMapName>
-      @foreach (var map in MapCatalog.FixedMaps)
-      {
-        <option value="@map.Name">@map.Name</option>
-      }
-    </select>
-  </label>
-  <div class="mb-2">
-    <label class="form-label d-block">Match Type</label>
-    <select class="form-select" @bind=selectedMatchType>
-      <option>@GameMatchTypes.Multiplayer</option>
-      <option disabled>With bots (coming soon)</option>
-      <option>@GameMatchTypes.DeveloperSimulation</option>
-    </select>
-  </div>
-  <div class="mb-3">
-    <div class="form-label fs-5">Match Settings</div>
-    <div class="row row-cols-1 row-cols-md-3 g-3 mt-0">
-    <label class="form-label col">
-      Reload time (ms)
-      <input class="form-control" type="number" min="@MatchSettings.MinReloadMs" max="@MatchSettings.MaxReloadMs" step="50" @bind=reloadMs />
-    </label>
-    <label class="form-label col">
-      Projectile
-      <select class="form-select" @bind=projectile>
-        @foreach (var type in Enum.GetValues<ProjectileType>())
-        {
-          <option value="@type">@type.Label()</option>
-        }
-      </select>
-    </label>
-    @if (projectile == ProjectileType.DumbBubbles)
-    {
-      <label class="form-label col">
-        Bullet speed
-        <select class="form-select" @bind=bulletSpeed>
-          @foreach (var speed in MatchSettings.BulletSpeedChoices)
-          {
-            <option value="@speed">@speed</option>
-          }
-        </select>
-      </label>
-      <label class="form-label col">
-        Bullet bounces
-        <select class="form-select" @bind=maxBounces>
-          @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
-          {
-            <option value="@bounces">@bounces</option>
-          }
-        </select>
-      </label>
-    }
-    <label class="form-label col">
-      Health (hits to eliminate)
-      <select class="form-select" @bind=health>
-        @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
-        {
-          <option value="@hits">@hits</option>
-        }
-      </select>
-    </label>
-    <label class="form-label col">
-      Lives (deaths before you're out for good)
-      <select class="form-select" @bind=lives>
-        @for (var count = MatchSettings.MinLives; count <= MatchSettings.MaxLives; count++)
-        {
-          <option value="@count">@count</option>
-        }
-      </select>
-    </label>
-    <label class="form-label col">
-      Respawn delay
-      <select class="form-select" @bind=respawnSeconds>
-        @for (var seconds = 0; seconds <= MatchSettings.MaxRespawnSeconds; seconds++)
-        {
-          <option value="@seconds">@seconds s</option>
-        }
-      </select>
-    </label>
-    <label class="form-label col">
-      Tank speed
-      <select class="form-select" @bind=speedMultiplier>
-        @foreach (var choice in MatchSettings.SpeedChoices)
-        {
-          <option value="@choice">@(choice)×</option>
-        }
-      </select>
-    </label>
-    <label class="form-label col">
-      Time limit
-      <select class="form-select" @bind=timeLimitMinutes>
-        @foreach (var minutes in MatchSettings.TimeLimitChoices)
-        {
-          <option value="@minutes">@(minutes == 0 ? "Off" : $"{minutes} min")</option>
-        }
-      </select>
-    </label>
-    </div>
-  </div>
-  <button class="btn btn-success" type="submit">Create Match</button>
-</form>
+@* Fixed backdrop so the themed background covers the whole viewport, not just the article *@
+<div class="lobby-backdrop" aria-hidden="true">
+  <div class="backdrop-grid"></div>
+  <div class="backdrop-glow"></div>
+</div>
 
-<h4 class="mt-4">Games in progress</h4>
-@if (!games.Any())
-{
-  <p class="text-muted">No games yet. Create one above.</p>
-}
-<div class="d-flex flex-wrap gap-3">
-  @foreach (var game in games)
-  {
-    var ended = game.Status == GameStatus.Ended;
-    var settings = game.Settings;
-    <div class="card" style="width: 300px;">
-      @if (game.Map is { } map)
-      {
-        @* Miniature of the map: obstacles in dark grey, spawn points as dots *@
-        <svg viewBox="0 0 @map.Width @map.Height" class="card-img-top" style="background: #e9ecef; display: block;">
-          @foreach (var obstacle in map.Obstacles)
-          {
-            <rect x="@obstacle.X" y="@obstacle.Y" width="@obstacle.Width" height="@obstacle.Height" fill="#343a40" />
-          }
-          @foreach (var spawn in map.SpawnPoints)
-          {
-            <circle cx="@(spawn.X + Tank.Size / 2)" cy="@(spawn.Y + Tank.Size / 2)" r="16" fill="#198754" />
-          }
-        </svg>
-      }
-      <div class="card-body">
-        <h5 class="card-title d-flex justify-content-between align-items-center">
-          @game.Name
-          <span class="badge @(ended ? "bg-secondary" : "bg-success")">@(ended ? "Ended" : "In progress")</span>
-        </h5>
-        <h6 class="card-subtitle mb-2 text-muted">@(game.Map?.Name) · @game.MatchType · @(game.Tanks?.Count() ?? 0) player@((game.Tanks?.Count() ?? 0) == 1 ? "" : "s")</h6>
-        <ul class="list-unstyled small mb-3">
-          <li>Health: @settings.Health hit@(settings.Health == 1 ? "" : "s")</li>
-          <li>Lives: @settings.Lives · respawn after @settings.RespawnSeconds s</li>
-          <li>Projectile: @settings.Projectile.Label()</li>
-          @if (settings.Projectile == ProjectileType.DumbBubbles)
-          {
-            <li>Bullet speed: @settings.BulletSpeed · bounces: @settings.MaxBounces</li>
-          }
-          <li>Reload: @settings.ReloadMs ms</li>
-          <li>Tank speed: @(settings.SpeedMultiplier)×</li>
-          <li>Time limit: @(settings.TimeLimitMinutes == 0 ? "off" : $"{settings.TimeLimitMinutes} min")</li>
-        </ul>
-        <button class="btn btn-primary" disabled="@ended" @onclick="() => JoinGame(game.Name)">Join Game</button>
+<div class="lobby">
+  <header class="hero">
+    <div class="hero-copy">
+      <div class="hero-kicker"><span class="live-dot"></span> Command center online</div>
+      <h1 class="hero-title">TANKS</h1>
+      <p class="hero-tagline">Top-down arena combat. Roll out, lock on, and be the last hull standing.</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-value">@liveGames</span><span class="stat-label">Live battles</span></div>
+        <div class="stat"><span class="stat-value">@pilotsDeployed</span><span class="stat-label">Tanks deployed</span></div>
+        <div class="stat"><span class="stat-value">@MapCatalog.FixedMaps.Count</span><span class="stat-label">Battlefields</span></div>
+      </div>
+      <div class="controls-legend">
+        <div class="legend-item">
+          <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+          <span>Drive</span>
+        </div>
+        <div class="legend-item"><span class="keys"><kbd>🖱 Move</kbd></span><span>Aim turret</span></div>
+        <div class="legend-item"><span class="keys"><kbd>🖱 Click</kbd></span><span>Fire</span></div>
       </div>
     </div>
-  }
+
+    @* Decorative duel: two tanks trading shots on a dirt strip *@
+    <div class="hero-arena" aria-hidden="true">
+      <div class="arena-ground"></div>
+      <img class="arena-tree tree-1" src="images/PNG/Environment/treeLarge.png" alt="" />
+      <img class="arena-tree tree-2" src="images/PNG/Environment/treeSmall.png" alt="" />
+      <img class="arena-prop sandbag" src="images/PNG/Obstacles/sandbagBrown.png" alt="" />
+      <img class="arena-prop barrel" src="images/PNG/Obstacles/barrelRed_up.png" alt="" />
+
+      <div class="duel-tank tank-left">
+        <div class="tank-rig">
+          <img class="hull" src="images/PNG/Tanks/tankGreen.png" alt="" />
+          <img class="gun" src="images/PNG/Tanks/barrelGreen.png" alt="" />
+        </div>
+      </div>
+      <div class="duel-tank tank-right">
+        <div class="tank-rig">
+          <img class="hull" src="images/PNG/Tanks/tankRed.png" alt="" />
+          <img class="gun" src="images/PNG/Tanks/barrelRed.png" alt="" />
+        </div>
+      </div>
+
+      <img class="shell shell-left" src="images/PNG/Bullets/bulletGreenSilver_outline.png" alt="" />
+      <img class="shell shell-right" src="images/PNG/Bullets/bulletRedSilver_outline.png" alt="" />
+      <img class="boom boom-right" src="images/Explosion/explosion03.png" alt="" />
+      <img class="boom boom-left" src="images/Explosion/explosion05.png" alt="" />
+      <img class="puff puff-1" src="images/PNG/Smoke/smokeGrey2.png" alt="" />
+      <img class="puff puff-2" src="images/PNG/Smoke/smokeGrey4.png" alt="" />
+      <div class="arena-scanline"></div>
+    </div>
+  </header>
+
+  <section class="panel deploy-panel">
+    <div class="panel-head">
+      <h2 class="panel-title"><span class="title-icon">⌖</span> Deploy a new battle</h2>
+      <span class="panel-step-count">Step @(step + 1) / @steps.Length</span>
+    </div>
+
+    <ol class="stepper">
+      @for (var i = 0; i < steps.Length; i++)
+      {
+        var index = i;
+        <li class="stepper-item @(index == step ? "is-active" : "") @(index < step ? "is-done" : "")">
+          <button type="button" class="stepper-button" @onclick="() => GoTo(index)" aria-current="@(index == step ? "step" : null)">
+            <span class="stepper-dot">@(index < step ? "✓" : (index + 1).ToString())</span>
+            <span class="stepper-label">@steps[index]</span>
+          </button>
+        </li>
+      }
+    </ol>
+    <div class="stepper-progress"><div class="stepper-progress-fill" style="width: @(step * 100 / (steps.Length - 1))%"></div></div>
+
+    <form @onsubmit:preventDefault=true @onsubmit=Submit>
+      <div @key=step class="step-body @(movingForward ? "enter-forward" : "enter-back")">
+        @switch (step)
+        {
+          case 0:
+            <div class="step-intro">
+              <h3>Mission briefing</h3>
+              <p>Name your battle so other commanders can find it, then pick how it plays.</p>
+            </div>
+            <label class="field">
+              <span class="field-label">Battle name</span>
+              <div class="name-input @(nameError is null ? "" : "has-error")">
+                <input type="text" placeholder="e.g. Operation Iron Viper" maxlength="40" autocomplete="off"
+                       @bind=userInputGameName @bind:event="oninput" @bind:after=ClearNameError />
+                <button type="button" class="dice" title="Random name" @onclick=RandomName>🎲</button>
+              </div>
+              @if (nameError is not null)
+              {
+                <span class="field-error">@nameError</span>
+              }
+            </label>
+            <div class="field">
+              <span class="field-label">Match type</span>
+              <div class="choice-cards">
+                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.Multiplayer ? "is-selected" : "")" @onclick="() => selectedMatchType = GameMatchTypes.Multiplayer">
+                  <span class="choice-icon">⚔</span>
+                  <span class="choice-name">Multiplayer</span>
+                  <span class="choice-desc">Face off against other players in real time.</span>
+                </button>
+                <button type="button" class="choice-card is-locked" disabled>
+                  <span class="choice-icon">🤖</span>
+                  <span class="choice-name">With bots</span>
+                  <span class="choice-desc">Coming soon.</span>
+                  <span class="choice-ribbon">Soon</span>
+                </button>
+                <button type="button" class="choice-card @(selectedMatchType == GameMatchTypes.DeveloperSimulation ? "is-selected" : "")" @onclick="() => selectedMatchType = GameMatchTypes.DeveloperSimulation">
+                  <span class="choice-icon">🛠</span>
+                  <span class="choice-name">Developer sim</span>
+                  <span class="choice-desc">Sandbox with target tanks, hitboxes and live tuning.</span>
+                </button>
+              </div>
+            </div>
+            break;
+
+          case 1:
+            <div class="step-intro">
+              <h3>Choose your battlefield</h3>
+              <p>Walls block tanks and bullets. Green markers are spawn points.</p>
+            </div>
+            <div class="map-grid">
+              @foreach (var map in MapCatalog.FixedMaps)
+              {
+                <button type="button" class="map-card @(map.Name == selectedMapName ? "is-selected" : "")" @onclick="() => selectedMapName = map.Name">
+                  @MapPreview(map)
+                  <span class="map-name">@map.Name</span>
+                  <span class="map-meta">@map.Obstacles.Count walls · @map.SpawnPoints.Count spawns</span>
+                </button>
+              }
+            </div>
+            break;
+
+          case 2:
+            <div class="step-intro">
+              <h3>Loadout</h3>
+              <p>Pick the ammo and how your tanks handle.</p>
+            </div>
+            <div class="field">
+              <span class="field-label">Projectile</span>
+              <div class="choice-cards two">
+                <button type="button" class="choice-card @(projectile == ProjectileType.DumbBubbles ? "is-selected" : "")" @onclick="() => projectile = ProjectileType.DumbBubbles">
+                  <span class="choice-icon">🫧</span>
+                  <span class="choice-name">@ProjectileType.DumbBubbles.Label()</span>
+                  <span class="choice-desc">Slow shots you can see coming. They can bounce off walls.</span>
+                </button>
+                <button type="button" class="choice-card @(projectile == ProjectileType.Realistic ? "is-selected" : "")" @onclick="() => projectile = ProjectileType.Realistic">
+                  <span class="choice-icon">💥</span>
+                  <span class="choice-name">@ProjectileType.Realistic.Label()</span>
+                  <span class="choice-desc">Hitscan shells with an explosion where they land.</span>
+                </button>
+              </div>
+            </div>
+            @if (projectile == ProjectileType.DumbBubbles)
+            {
+              <div class="field-row">
+                <div class="field">
+                  <span class="field-label">Bullet speed</span>
+                  <div class="segmented">
+                    @foreach (var speed in MatchSettings.BulletSpeedChoices)
+                    {
+                      var value = speed;
+                      <button type="button" class="seg @(bulletSpeed == value ? "is-selected" : "")" @onclick="() => bulletSpeed = value">@value</button>
+                    }
+                  </div>
+                </div>
+                <div class="field">
+                  <span class="field-label">Bullet bounces</span>
+                  <div class="segmented">
+                    @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+                    {
+                      var value = bounces;
+                      <button type="button" class="seg @(maxBounces == value ? "is-selected" : "")" @onclick="() => maxBounces = value">@value</button>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Reload time <span class="field-value">@((reloadMs / 1000.0).ToString("0.00")) s · @ReloadLabel</span></span>
+                <input class="slider" type="range" min="@MatchSettings.MinReloadMs" max="@MatchSettings.MaxReloadMs" step="50"
+                       style="--fill: @Percent(reloadMs, MatchSettings.MinReloadMs, MatchSettings.MaxReloadMs)%"
+                       @bind=reloadMs @bind:event="oninput" />
+                <span class="slider-scale"><span>Rapid</span><span>Heavy</span></span>
+              </label>
+              <div class="field">
+                <span class="field-label">Tank speed</span>
+                <div class="segmented">
+                  @foreach (var choice in MatchSettings.SpeedChoices)
+                  {
+                    var value = choice;
+                    <button type="button" class="seg @(speedMultiplier == value ? "is-selected" : "")" @onclick="() => speedMultiplier = value">@(value)×</button>
+                  }
+                </div>
+              </div>
+            </div>
+            break;
+
+          case 3:
+            <div class="step-intro">
+              <h3>Rules of engagement</h3>
+              <p>How much punishment a tank can take, and how long the fight lasts.</p>
+            </div>
+            <div class="field">
+              <span class="field-label">Health <span class="field-value">@health hit@(health == 1 ? "" : "s") to eliminate</span></span>
+              <div class="pips">
+                @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
+                {
+                  var value = hits;
+                  <button type="button" class="pip health @(value <= health ? "is-on" : "")" title="@value" @onclick="() => health = value"></button>
+                }
+              </div>
+            </div>
+            <div class="field">
+              <span class="field-label">Lives <span class="field-value">@lives death@(lives == 1 ? "" : "s") before you're out for good</span></span>
+              <div class="pips">
+                @for (var count = MatchSettings.MinLives; count <= MatchSettings.MaxLives; count++)
+                {
+                  var value = count;
+                  <button type="button" class="pip life @(value <= lives ? "is-on" : "")" title="@value" @onclick="() => lives = value"></button>
+                }
+              </div>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Respawn delay <span class="field-value">@(respawnSeconds == 0 ? "Instant" : $"{respawnSeconds} s")</span></span>
+                <input class="slider" type="range" min="0" max="@MatchSettings.MaxRespawnSeconds" step="1"
+                       style="--fill: @Percent(respawnSeconds, 0, MatchSettings.MaxRespawnSeconds)%"
+                       @bind=respawnSeconds @bind:event="oninput" />
+                <span class="slider-scale"><span>Instant</span><span>@MatchSettings.MaxRespawnSeconds s</span></span>
+              </label>
+              <div class="field">
+                <span class="field-label">Time limit</span>
+                <div class="segmented">
+                  @foreach (var minutes in MatchSettings.TimeLimitChoices)
+                  {
+                    var value = minutes;
+                    <button type="button" class="seg @(timeLimitMinutes == value ? "is-selected" : "")" @onclick="() => timeLimitMinutes = value">@(value == 0 ? "Off" : $"{value}m")</button>
+                  }
+                </div>
+              </div>
+            </div>
+            break;
+
+          default:
+            var selectedMap = MapCatalog.GetByName(selectedMapName);
+            <div class="step-intro">
+              <h3>Final check, commander</h3>
+              <p>Review the orders below. Click any section to change it.</p>
+            </div>
+            <div class="briefing">
+              <div class="briefing-map">
+                @MapPreview(selectedMap)
+                <div class="briefing-name">@(string.IsNullOrWhiteSpace(userInputGameName) ? "Unnamed battle" : userInputGameName)</div>
+              </div>
+              <div class="briefing-sections">
+                <button type="button" class="briefing-section" @onclick="() => GoTo(0)">
+                  <span class="briefing-head">Mission <span class="edit">Edit</span></span>
+                  <span>@selectedMatchType</span>
+                </button>
+                <button type="button" class="briefing-section" @onclick="() => GoTo(1)">
+                  <span class="briefing-head">Battlefield <span class="edit">Edit</span></span>
+                  <span>@selectedMap.Name</span>
+                </button>
+                <button type="button" class="briefing-section" @onclick="() => GoTo(2)">
+                  <span class="briefing-head">Loadout <span class="edit">Edit</span></span>
+                  <span>@projectile.Label()@(projectile == ProjectileType.DumbBubbles ? $" · speed {bulletSpeed} · {maxBounces} bounce{(maxBounces == 1 ? "" : "s")}" : "")</span>
+                  <span>Reload @reloadMs ms · tank speed @(speedMultiplier)×</span>
+                </button>
+                <button type="button" class="briefing-section" @onclick="() => GoTo(3)">
+                  <span class="briefing-head">Rules <span class="edit">Edit</span></span>
+                  <span>@health HP · @lives li@(lives == 1 ? "fe" : "ves") · respawn @(respawnSeconds) s</span>
+                  <span>Time limit: @(timeLimitMinutes == 0 ? "off" : $"{timeLimitMinutes} min")</span>
+                </button>
+              </div>
+            </div>
+            break;
+        }
+      </div>
+
+      <div class="step-actions">
+        @if (step > 0)
+        {
+          <button type="button" class="btn-game ghost" @onclick=Back>← Back</button>
+        }
+        <span class="spacer"></span>
+        @if (step == 0)
+        {
+          <button type="button" class="btn-game link" @onclick=QuickReview>Use defaults, skip to review</button>
+        }
+        @if (step < LastStep)
+        {
+          <button type="submit" class="btn-game primary">Next<span class="next-name">: @steps[step + 1]</span> →</button>
+        }
+        else
+        {
+          <button type="submit" class="btn-game deploy" disabled="@deploying">
+            <span class="deploy-glint"></span>
+            @(deploying ? "Deploying…" : "▶ Deploy & play")
+          </button>
+        }
+      </div>
+    </form>
+  </section>
+
+  <section class="battles">
+    <div class="battles-head">
+      <h2 class="panel-title"><span class="title-icon">◎</span> Active battles</h2>
+      <span class="count-badge">@liveGames live</span>
+    </div>
+
+    @if (!games.Any())
+    {
+      <div class="empty-radar">
+        <div class="radar">
+          <div class="radar-sweep"></div>
+          <div class="radar-blip"></div>
+        </div>
+        <div>
+          <p class="empty-title">Scanning for battles…</p>
+          <p class="empty-copy">No one's fighting yet. Deploy a battle above and share its name with a friend.</p>
+        </div>
+      </div>
+    }
+
+    <div class="battle-grid">
+      @foreach (var game in games)
+      {
+        var ended = game.Status == GameStatus.Ended;
+        var settings = game.Settings;
+        var tankCount = game.Tanks?.Count() ?? 0;
+        <article class="battle-card @(ended ? "is-ended" : "")">
+          <div class="battle-map">
+            @if (game.Map is { } map)
+            {
+              @MapPreview(map)
+            }
+            <span class="status @(ended ? "ended" : "live")">
+              @if (!ended)
+              {
+                <span class="live-dot"></span>
+              }
+              @(ended ? "Ended" : "Live")
+            </span>
+          </div>
+          <div class="battle-body">
+            <h3 class="battle-name" title="@game.Name">@game.Name</h3>
+            <div class="battle-sub">@(game.Map?.Name) · @game.MatchType</div>
+            <div class="battle-players" title="@tankCount player@(tankCount == 1 ? "" : "s")">
+              @for (var i = 0; i < Math.Min(tankCount, 8); i++)
+              {
+                <img src="images/PNG/Tanks/@(TankColors[i % TankColors.Length]).png" alt="" />
+              }
+              <span>@tankCount player@(tankCount == 1 ? "" : "s")</span>
+            </div>
+            <ul class="chips">
+              <li>❤ @settings.Health HP</li>
+              <li>↻ @settings.Lives li@(settings.Lives == 1 ? "fe" : "ves") · @settings.RespawnSeconds s</li>
+              <li>@(settings.Projectile == ProjectileType.DumbBubbles ? "🫧" : "💥") @settings.Projectile.Label()</li>
+              @if (settings.Projectile == ProjectileType.DumbBubbles)
+              {
+                <li>➶ speed @settings.BulletSpeed · @settings.MaxBounces bounce@(settings.MaxBounces == 1 ? "" : "s")</li>
+              }
+              <li>⏱ reload @settings.ReloadMs ms</li>
+              <li>⚙ @(settings.SpeedMultiplier)× speed</li>
+              <li>⌛ @(settings.TimeLimitMinutes == 0 ? "no limit" : $"{settings.TimeLimitMinutes} min")</li>
+            </ul>
+            <button class="btn-game primary full" disabled="@ended" @onclick="() => JoinGame(game.Name)">
+              @(ended ? "Battle over" : "Join battle →")
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
 </div>
 
 
 @code {
+  private static readonly string[] steps = ["Mission", "Battlefield", "Loadout", "Rules", "Deploy"];
+  private static readonly string[] TankColors = ["tankGreen", "tankRed", "tankBlue", "tankBeige", "tankBlack"];
+  private static readonly string[] NameAdjectives = ["Iron", "Steel", "Crimson", "Thunder", "Dust", "Rolling", "Silent", "Scorched", "Midnight", "Rusty"];
+  private static readonly string[] NameNouns = ["Viper", "Storm", "Hammer", "Rhino", "Anvil", "Fury", "Badger", "Tread", "Cyclone", "Bastion"];
+  private int LastStep => steps.Length - 1;
+
+  private int step;
+  private bool movingForward = true;
+  private bool deploying;
+  private string? nameError;
+
   private HubConnection? hubConnection;
   private string userInputGameName = "";
   private string selectedMapName = MapCatalog.DefaultMap.Name;
@@ -182,6 +420,33 @@
   private int timeLimitMinutes = new MatchSettings().TimeLimitMinutes;
 
   private IEnumerable<GameState> games = [];
+  private int liveGames => games.Count(g => g.Status != GameStatus.Ended);
+  private int pilotsDeployed => games.Where(g => g.Status != GameStatus.Ended).Sum(g => g.Tanks?.Count() ?? 0);
+
+  private string ReloadLabel => reloadMs switch
+  {
+    < 400 => "Machine gun",
+    < 1200 => "Standard",
+    < 2500 => "Heavy",
+    _ => "Artillery",
+  };
+
+  private static double Percent(double value, double min, double max) => Math.Round((value - min) * 100 / (max - min), 1);
+
+  // Miniature of a map: obstacles as walls, spawn points as pulsing markers
+  private RenderFragment MapPreview(GameMap map) =>
+    @<svg viewBox="0 0 @map.Width @map.Height" class="map-preview" preserveAspectRatio="xMidYMid meet">
+      <rect class="map-floor" x="0" y="0" width="@map.Width" height="@map.Height" />
+      @foreach (var obstacle in map.Obstacles)
+      {
+        <rect class="map-wall" x="@obstacle.X" y="@obstacle.Y" width="@obstacle.Width" height="@obstacle.Height" rx="6" />
+      }
+      @foreach (var spawn in map.SpawnPoints)
+      {
+        <circle class="map-spawn-ring" cx="@(spawn.X + Tank.Size / 2)" cy="@(spawn.Y + Tank.Size / 2)" r="26" />
+        <circle class="map-spawn" cx="@(spawn.X + Tank.Size / 2)" cy="@(spawn.Y + Tank.Size / 2)" r="14" />
+      }
+    </svg>;
 
   protected override async Task OnInitializedAsync()
   {
@@ -189,9 +454,9 @@
 
     signalR.HubConnection?.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
       Console.WriteLine("got game list");
-      
+
       Console.WriteLine(JsonSerializer.Serialize(newGames));
-      
+
       games = newGames;
       InvokeAsync(StateHasChanged);
     });
@@ -207,10 +472,68 @@
 
     signalR.HubConnection?.SendAsync(Messages.GetGames);
   }
+
+  private void GoTo(int target)
+  {
+    // Don't leave the first step with a name the server would reject
+    if (step == 0 && target > 0 && !ValidateName())
+      return;
+    movingForward = target >= step;
+    step = Math.Clamp(target, 0, LastStep);
+  }
+
+  private void Back() => GoTo(step - 1);
+
+  private void QuickReview()
+  {
+    if (string.IsNullOrWhiteSpace(userInputGameName))
+      RandomName();
+    GoTo(LastStep);
+  }
+
+  // Enter key and the primary button both land here
+  private async Task Submit()
+  {
+    if (step < LastStep)
+    {
+      GoTo(step + 1);
+      return;
+    }
+    await CreateGame();
+  }
+
+  private bool ValidateName()
+  {
+    var name = userInputGameName.Trim();
+    nameError = name.Length == 0 ? "Give your battle a name (or roll the dice)."
+      : games.Any(g => g.Name == name) ? "That name is already taken by another battle."
+      : null;
+    return nameError is null;
+  }
+
+  private void ClearNameError() => nameError = null;
+
+  private void RandomName()
+  {
+    string name;
+    do
+    {
+      name = $"Operation {NameAdjectives[Random.Shared.Next(NameAdjectives.Length)]} {NameNouns[Random.Shared.Next(NameNouns.Length)]}";
+    } while (games.Any(g => g.Name == name));
+    userInputGameName = name;
+    nameError = null;
+  }
+
   private async Task CreateGame()
   {
+    if (!ValidateName())
+    {
+      GoTo(0);
+      return;
+    }
     Console.WriteLine("sending message to create game");
-    
+    deploying = true;
+
     var settings = new MatchSettings
     {
       ReloadMs = reloadMs,
@@ -223,12 +546,23 @@
       SpeedMultiplier = speedMultiplier,
       TimeLimitMinutes = timeLimitMinutes
     };
-    signalR.HubConnection?.SendAsync(Messages.CreateGame, userInputGameName, selectedMapName, selectedMatchType, settings);
-    userInputGameName = "";
+    try
+    {
+      // Invoke (not Send) so a server-side rejection comes back as an exception
+      if (signalR.HubConnection is { } connection)
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings);
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine(ex);
+      deploying = false;
+      nameError = "Couldn't deploy that battle. Try a different name.";
+      GoTo(0);
+    }
   }
-  
+
   private void JoinGame(string gameName)
-  {    
+  {
     signalR.HubConnection?.SendAsync(Messages.JoinGame, gameName);
   }
 }
