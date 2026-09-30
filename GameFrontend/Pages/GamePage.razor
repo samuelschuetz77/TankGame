@@ -2,9 +2,18 @@
 @using GameLogic
 @using GameLogic.Game
 @using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.AspNetCore.SignalR
 @inject SignalRService signalR
+@inject Microsoft.JSInterop.IJSRuntime JS
+@implements IAsyncDisposable
 
 
+@if (connectionError is not null)
+{
+  <div class="alert alert-warning" role="alert">
+    @connectionError <a href="/">Return to the lobby</a>
+  </div>
+}
 @if (game != null)
 {
   <div class="d-flex align-items-start gap-3">
@@ -25,13 +34,14 @@
             : $"{game.WinnerId.Value.ToString()[^5..]} wins")
         </div>
       }
-      <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.Width ?? 750)" BoardHeight="@(game.Map?.Height ?? 750)">
-        @if (game.Map?.Obstacles != null)
+      @if (WatchingOther)
+      {
+        <div class="small mb-2">@(LocalTank?.Respawning == true ? "Waiting to respawn" : "Eliminated") &middot; @(CameraTarget is null ? "No living players to follow" : $"Following {CameraTarget.Id.ToString()[^5..]}")</div>
+      }
+      <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.ViewWidth ?? 900)" BoardHeight="@(game.Map?.ViewHeight ?? 700)" Camera="Camera">
+        @if (game.Map is { } map)
         {
-          @foreach (var obstacle in game.Map.Obstacles)
-          {
-            <div style=@($@"position: absolute; top: {obstacle.Y}px; left: {obstacle.X}px; width: {obstacle.Width}px; height: {obstacle.Height}px; background: #343a40; border: 2px solid #111827; pointer-events: none;")></div>
-          }
+          <MapSurface Map="map" />
         }
         @foreach (var tank in game.Tanks ?? [])
         {
@@ -135,6 +145,31 @@
   public Guid PlayerId { get; set; }
 
   private GameState? game = null;
+  private TankState? LocalTank => game?.Tanks?.FirstOrDefault(t => t.Id == PlayerId);
+  private bool WatchingOther => LocalTank is { } tank && (tank.Respawning || tank.Eliminated);
+  private Guid? followedPlayer;
+  private TankState? CameraTarget
+  {
+    get
+    {
+      var target = MapCamera.FollowTarget(game?.Tanks ?? [], PlayerId, followedPlayer);
+      followedPlayer = target?.Id;
+      return target;
+    }
+  }
+  private MapCamera lastCamera = new(1, 0, 0);
+  private MapCamera Camera
+  {
+    get
+    {
+      if (game?.Map is not { } map) return lastCamera;
+      var target = CameraTarget;
+      if (target is not null || map.Mode != MapMode.Foggish)
+        lastCamera = MapCamera.For(map, (target?.PositionX ?? 0) + Tank.Size / 2,
+          (target?.PositionY ?? 0) - game.DeveloperSettings.VisualTopOffset + Tank.Size / 2);
+      return lastCamera;
+    }
+  }
   private bool developerSettingsLoaded = false;
   private bool showHitbox;
   private bool slideAlongWalls;
@@ -147,13 +182,36 @@
   private int turnDegrees = new DeveloperGameSettings().TurnDegrees;
   private double backwardSpeedMultiplier = 0.65;
 
+  private IDisposable? gameSubscription;
+  private bool disposed;
+  private string? connectionError;
+  private bool profiling;
+  private long nextPing;
+  private string? subscribedGame;
+  private async Task Resubscribe(string? connectionId)
+  {
+    if (!disposed && signalR.HubConnection is { } connection)
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
+  }
   protected override async Task OnParametersSetAsync()
   {
+    profiling = ((IJSInProcessRuntime)JS).Invoke<bool>("tankPerf.isEnabled");
     await signalR.EnsureConnected();
 
-    signalR.HubConnection?.On<GameState>(Messages.GameUpdate, (gameState) =>
+    if (subscribedGame == GameName) return;
+    if (subscribedGame is not null && signalR.HubConnection is { } previous)
+      await previous.InvokeAsync("UnsubscribeFromGame", subscribedGame);
+    gameSubscription?.Dispose();
+    game = null;
+    subscribedGame = GameName;
+    gameSubscription = signalR.HubConnection?.On<GameState>(Messages.GameUpdate, (gameState) =>
     {
-      game = gameState;
+      if (disposed || gameState.Name != GameName) return;
+      ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.received", gameState.Tick,
+        gameState.ServerWorkMs, gameState.ServerIntervalMs, gameState.ServerBroadcastMs);
+      // Live snapshots omit the immutable map. Keep the initial map instance and its cached SVG.
+      game = gameState with { Map = gameState.Map ?? game?.Map };
       if (gameState.MatchType == GameMatchTypes.DeveloperSimulation && !developerSettingsLoaded)
       {
         LoadDeveloperSettings(gameState.DeveloperSettings);
@@ -161,8 +219,44 @@
       InvokeAsync(StateHasChanged);
     });
 
-    signalR.HubConnection?.SendAsync(Messages.SubscribeToGame, GameName);
+    if (signalR.HubConnection is { } connection)
+    {
+      connection.Reconnected -= Resubscribe;
+      connection.Reconnected += Resubscribe;
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
+    }
 
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (game is not null)
+      await JS.InvokeVoidAsync("tankPerf.rendered", game.Tick, LocalTank?.InputSequence ?? 0);
+    if (profiling && Environment.TickCount64 >= nextPing && signalR.HubConnection is { State: HubConnectionState.Connected } connection)
+    {
+      nextPing = Environment.TickCount64 + 2000;
+      var at = System.Diagnostics.Stopwatch.GetTimestamp();
+      try
+      {
+        await connection.InvokeAsync<long>("PerformancePing");
+        await JS.InvokeVoidAsync("tankPerf.sample", "roundTripMs", System.Diagnostics.Stopwatch.GetElapsedTime(at).TotalMilliseconds);
+      }
+      catch (Exception) { }
+    }
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    disposed = true;
+    gameSubscription?.Dispose();
+    if (signalR.HubConnection is { } connection)
+    {
+      connection.Reconnected -= Resubscribe;
+      if (connection.State == HubConnectionState.Connected && subscribedGame is not null)
+        try { await connection.InvokeAsync("UnsubscribeFromGame", subscribedGame); }
+        catch (Exception) { /* Connection may close during navigation. */ }
+    }
   }
 
   private void LoadDeveloperSettings(DeveloperGameSettings settings)

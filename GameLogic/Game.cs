@@ -8,6 +8,7 @@ public class Game
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
     // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
+    internal Random SpawnRandom { get; init; } = Random.Shared;
     public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
@@ -42,10 +43,15 @@ public class Game
         hubContext = context;
     }
 
-    public GameState GetGameState()
+    public double ServerWorkMs { get; internal set; }
+    public double ServerIntervalMs { get; internal set; }
+    public double ServerBroadcastMs { get; internal set; }
+
+    public GameState GetGameState(bool includeMap = true)
     {
         return new()
         {
+            Tick = Tick, ServerWorkMs = ServerWorkMs, ServerIntervalMs = ServerIntervalMs, ServerBroadcastMs = ServerBroadcastMs,
             Status = Status,
             Name = Name,
             MatchType = MatchType,
@@ -56,10 +62,11 @@ public class Game
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
-            Map = Map,
+            Map = includeMap ? Map : null,
             Tanks = Tanks.Select(t => new TankState()
             {
                 Id = t.Id,
+                InputSequence = t.InputSequence,
                 PositionX = t.PositionX,
                 PositionY = t.PositionY,
                 Angle = t.Angle,
@@ -89,9 +96,13 @@ public class Game
         };
     }
 
+    public Task SendInitialUpdate(string connectionId) =>
+        hubContext.Clients.Client(connectionId).SendAsync(Messages.GameUpdate, GetGameState());
+
     public async Task BroadcastUpdate()
     {
-        await hubContext.Clients.Clients(ConnectedClients.Keys.ToArray()).SendAsync(Messages.GameUpdate, GetGameState());
+        if (ConnectedClients.IsEmpty) return;
+        await hubContext.Clients.Clients(ConnectedClients.Keys.ToArray()).SendAsync(Messages.GameUpdate, GetGameState(includeMap: false));
     }
 
     public Guid JoinGame()
@@ -101,13 +112,16 @@ public class Game
         if (Status == GameStatus.Ended)
             throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
 
-        var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
+        if (Tanks.Count() >= Map.MaxPlayers)
+            throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
+        var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         var newTank = new Tank
         {
-            PositionX = spawnPoint.X,
-            PositionY = spawnPoint.Y,
-            Angle = spawnPoint.Angle,
-            Health = Settings.Health
+            PositionX = spawnPoint?.X ?? 0,
+            PositionY = spawnPoint?.Y ?? 0,
+            Angle = spawnPoint?.Angle ?? 0,
+            TurretAngle = spawnPoint?.Angle ?? 0,
+            Health = spawnPoint is null ? 0 : Settings.Health
         };
         Tanks = Tanks.Append(newTank);
         CreatorId ??= newTank.Id;
@@ -134,6 +148,7 @@ public class Game
 
                 var updatedTank = t with
                 {
+                    InputSequence = request.InputSequence,
                     MovingUp = request.Up,
                     MovingLeft = request.Left,
                     MovingRight = request.Right,

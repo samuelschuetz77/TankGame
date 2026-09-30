@@ -135,8 +135,15 @@
               <h3>Choose your battlefield</h3>
               <p>Walls block tanks and bullets. Green markers are spawn points.</p>
             </div>
+            <div class="d-flex gap-2 mb-3" role="group" aria-label="Map mode">
+              @foreach (var mode in Enum.GetValues<MapMode>())
+              {
+                <button type="button" class="btn-game @(selectedMode == mode ? "primary" : "")" @onclick="() => SelectMode(mode)">@ModeLabel(mode)</button>
+              }
+            </div>
+            <p>@ModeDescription</p>
             <div class="map-grid">
-              @foreach (var map in MapCatalog.FixedMaps)
+              @foreach (var map in MapCatalog.FixedMaps.Where(m => m.Mode == selectedMode))
               {
                 <button type="button" class="map-card @(map.Name == selectedMapName ? "is-selected" : "")" @onclick="() => selectedMapName = map.Name">
                   @MapPreview(map)
@@ -346,6 +353,7 @@
         var ended = game.Status == GameStatus.Ended;
         var settings = game.Settings;
         var tankCount = game.Tanks?.Count() ?? 0;
+        var full = tankCount >= (game.Map?.MaxPlayers ?? 8);
         <article class="battle-card @(ended ? "is-ended" : "")">
           <div class="battle-map">
             @if (game.Map is { } map)
@@ -362,13 +370,13 @@
           </div>
           <div class="battle-body">
             <h3 class="battle-name" title="@game.Name">@game.Name</h3>
-            <div class="battle-sub">@(game.Map?.Name) · @game.MatchType</div>
+            <div class="battle-sub">@(game.Map?.Name) &middot; @ModeLabel(game.Map?.Mode ?? MapMode.Standard) &middot; @game.MatchType</div>
             <div class="battle-players" title="@tankCount player@(tankCount == 1 ? "" : "s")">
               @for (var i = 0; i < Math.Min(tankCount, 8); i++)
               {
                 <img src="images/PNG/Tanks/@(TankColors[i % TankColors.Length]).png" alt="" />
               }
-              <span>@tankCount player@(tankCount == 1 ? "" : "s")</span>
+              <span>@tankCount/@(game.Map?.MaxPlayers ?? 8) players</span>
             </div>
             <ul class="chips">
               <li>❤ @settings.Health HP</li>
@@ -382,8 +390,8 @@
               <li>⚙ @(settings.SpeedMultiplier)× speed</li>
               <li>⌛ @(settings.TimeLimitMinutes == 0 ? "no limit" : $"{settings.TimeLimitMinutes} min")</li>
             </ul>
-            <button class="btn-game primary full" disabled="@ended" @onclick="() => JoinGame(game.Name)">
-              @(ended ? "Battle over" : "Join battle →")
+            <button class="btn-game primary full" disabled="@(ended || full)" @onclick="() => JoinGame(game.Name)">
+              @(ended ? "Battle over" : full ? "Full" : "Join battle →")
             </button>
           </div>
         </article>
@@ -393,7 +401,16 @@
 </div>
 
 
+@if (joinError is not null)
+{
+  <div class="alert alert-warning" role="alert">@joinError</div>
+}
+
+@implements IDisposable
 @code {
+  private readonly List<IDisposable> subscriptions = [];
+  public void Dispose() { foreach (var subscription in subscriptions) subscription.Dispose(); }
+
   private static readonly string[] steps = ["Mission", "Battlefield", "Loadout", "Rules", "Deploy"];
   private static readonly string[] TankColors = ["tankGreen", "tankRed", "tankBlue", "tankBeige", "tankBlack"];
   private static readonly string[] NameAdjectives = ["Iron", "Steel", "Crimson", "Thunder", "Dust", "Rolling", "Silent", "Scorched", "Midnight", "Rusty"];
@@ -405,8 +422,22 @@
   private bool deploying;
   private string? nameError;
 
-  private HubConnection? hubConnection;
+
   private string userInputGameName = "";
+  private MapMode selectedMode = MapMode.Standard;
+  private string? joinError;
+  private static string ModeLabel(MapMode mode) => mode == MapMode.BigMap ? "Big Map" : mode.ToString();
+  private string ModeDescription => selectedMode switch
+  {
+    MapMode.BigMap => "A larger battlefield viewed in full. Up to 20 players.",
+    MapMode.Foggish => "Explore a vast battlefield with a camera that follows your tank. Up to 40 players.",
+    _ => "Classic compact battlefields. Up to 8 players."
+  };
+  private void SelectMode(MapMode mode)
+  {
+    selectedMode = mode;
+    selectedMapName = MapCatalog.FixedMaps.First(m => m.Mode == mode).Name;
+  }
   private string selectedMapName = MapCatalog.DefaultMap.Name;
   private string selectedMatchType = "Multiplayer";
   private int reloadMs = new MatchSettings().ReloadMs;
@@ -436,11 +467,7 @@
   // Miniature of a map: obstacles as walls, spawn points as pulsing markers
   private RenderFragment MapPreview(GameMap map) =>
     @<svg viewBox="0 0 @map.Width @map.Height" class="map-preview" preserveAspectRatio="xMidYMid meet">
-      <rect class="map-floor" x="0" y="0" width="@map.Width" height="@map.Height" />
-      @foreach (var obstacle in map.Obstacles)
-      {
-        <rect class="map-wall" x="@obstacle.X" y="@obstacle.Y" width="@obstacle.Width" height="@obstacle.Height" rx="6" />
-      }
+      <MapShapes Map="map" />
       @foreach (var spawn in map.SpawnPoints)
       {
         <circle class="map-spawn-ring" cx="@(spawn.X + Tank.Size / 2)" cy="@(spawn.Y + Tank.Size / 2)" r="26" />
@@ -452,23 +479,23 @@
   {
     await signalR.EnsureConnected();
 
-    signalR.HubConnection?.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
+    subscriptions.Add(signalR.HubConnection!.On<IEnumerable<GameState>>(Messages.GameList, (newGames) => {
       Console.WriteLine("got game list");
 
-      Console.WriteLine(JsonSerializer.Serialize(newGames));
+
 
       games = newGames;
       InvokeAsync(StateHasChanged);
-    });
+    }));
 
-    signalR.HubConnection?.On<string, Guid>(Messages.CreatedGame, (gameName, playerId) => {
+    subscriptions.Add(signalR.HubConnection!.On<string, Guid>(Messages.CreatedGame, (gameName, playerId) => {
       Console.WriteLine("got created game response");
       Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
-    });
-    signalR.HubConnection?.On<string, Guid>(Messages.JoinedGame, (gameName, playerId) => {
+    }));
+    subscriptions.Add(signalR.HubConnection!.On<string, Guid>(Messages.JoinedGame, (gameName, playerId) => {
       Console.WriteLine("got  game joined response");
       Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
-    });
+    }));
 
     signalR.HubConnection?.SendAsync(Messages.GetGames);
   }
@@ -561,8 +588,19 @@
     }
   }
 
-  private void JoinGame(string gameName)
+  private async Task JoinGame(string gameName)
   {
-    signalR.HubConnection?.SendAsync(Messages.JoinGame, gameName);
+    joinError = null;
+    try
+    {
+      if (signalR.HubConnection is { } connection)
+        await connection.InvokeAsync(Messages.JoinGame, gameName);
+    }
+    catch
+    {
+      joinError = "Unable to join. This battle may be full or ended. Try another battle.";
+      if (signalR.HubConnection is { } connection)
+        await connection.SendAsync(Messages.GetGames);
+    }
   }
 }

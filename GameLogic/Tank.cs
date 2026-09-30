@@ -2,6 +2,7 @@ namespace GameLogic;
 
 public record Tank
 {
+    public long InputSequence { get; init; }
     public const int Size = 60;
     public Guid Id { get; } = Guid.NewGuid();
     public int PositionY { get; init; } = 50;

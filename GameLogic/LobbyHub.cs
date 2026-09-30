@@ -11,6 +11,8 @@ public class LobbyHub : Hub
   {
     this.lobby = lobby;
   }
+  public long PerformancePing() => Environment.TickCount64;
+
   public async Task SendMessage(string user, string message)
   {
     await Clients.All.SendAsync("ReceiveMessage", user, message);
@@ -39,10 +41,12 @@ public class LobbyHub : Hub
 
   public async Task JoinGame(string gameName)
   {
-    var game = lobby.Games.First(g => g.Name == gameName);
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
     var playerId = game.JoinGame();
-    SubscribeToGame(gameName);
+    await SubscribeToGame(gameName);
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.JoinedGame, game.Name, playerId);
+    await Clients.All.SendAsync(Messages.GameList, lobby.Games.Select(g => g.GetGameState()).ToArray());
   }
 
   public async Task GetGames()
@@ -53,20 +57,27 @@ public class LobbyHub : Hub
     await Clients.Client(Context.ConnectionId).SendAsync(Messages.GameList, games);
   }
 
-  public void SubscribeToGame(string gameName)
+  public async Task SubscribeToGame(string gameName)
   {
     Console.WriteLine("subscribing to game");
 
-    var game = lobby.Games.First(g => g.Name == gameName);
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
 
+    // Deliver immutable map data once, before enrolling this connection in live updates.
+    await game.SendInitialUpdate(Context.ConnectionId);
     game.ConnectedClients.TryAdd(Context.ConnectionId, 0);
 
   }
 
+  public void UnsubscribeFromGame(string gameName)
+  {
+    lobby.Games.FirstOrDefault(g => g.Name == gameName)?.ConnectedClients.TryRemove(Context.ConnectionId, out _);
+  }
+
   public async Task PlayerInput(PlayerInputRequest request)
   {
-    Console.WriteLine("got player input");
-    Console.WriteLine(request);
+
     var game = lobby.Games.First(g => g.Name == request.GameName);
     // An instant shot shouldn't wait for the next 100 ms tick to show its explosion
     if (game.ReceiveUserInput(request))
@@ -75,14 +86,16 @@ public class LobbyHub : Hub
 
   public async Task UpdateDeveloperSettings(string gameName, DeveloperGameSettings settings)
   {
-    var game = lobby.Games.First(g => g.Name == gameName);
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
     game.UpdateDeveloperSettings(settings);
     await game.BroadcastUpdate();
   }
 
   public async Task UpdateMatchSettings(string gameName, Guid playerId, MatchSettings settings)
   {
-    var game = lobby.Games.First(g => g.Name == gameName);
+    var game = lobby.Games.FirstOrDefault(g => g.Name == gameName)
+      ?? throw new HubException($"Battle '{gameName}' is no longer available. Return to the lobby to create or join a battle.");
     game.UpdateMatchSettings(playerId, settings);
     await game.BroadcastUpdate();
   }

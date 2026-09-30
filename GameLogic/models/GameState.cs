@@ -4,6 +4,10 @@ namespace GameLogic;
 
 public record GameState
 {
+    public int Tick { get; init; }
+    public double ServerWorkMs { get; init; }
+    public double ServerIntervalMs { get; init; }
+    public double ServerBroadcastMs { get; init; }
     public GameStatus Status { get; init; }
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
@@ -41,6 +45,7 @@ public record DeveloperGameSettings
 
 public record TankState
 {
+    public long InputSequence { get; init; }
     public Guid Id { get; init; }
     public int PositionX { get; init; }
     public int PositionY { get; init; }

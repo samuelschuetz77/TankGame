@@ -42,9 +42,9 @@ public class UnitTest1
         var game = lobby.CreateGame("subscribers");
         var active = new LobbyHub(lobby) { Context = new TestCallerContext("active") };
         var leaving = new LobbyHub(lobby) { Context = new TestCallerContext("leaving") };
-        active.SubscribeToGame("subscribers");
-        active.SubscribeToGame("subscribers");
-        leaving.SubscribeToGame("subscribers");
+        await active.SubscribeToGame("subscribers");
+        await active.SubscribeToGame("subscribers");
+        await leaving.SubscribeToGame("subscribers");
 
         await leaving.OnDisconnectedAsync(null);
 
@@ -79,7 +79,10 @@ public class UnitTest1
         {
             Map = new GameMap("Concurrent", 400, 400, obstacles, [new MapSpawnPoint(60, 60, 0)])
         };
+        obstacles.Resume.Set(); // Join now validates obstacles too. Pause only the movement tick.
         var id = game.JoinGame();
+        obstacles.Resume.Reset();
+        obstacles.Entered.Reset();
         var input = new PlayerInputRequest { GameName = "Concurrent", PlayerId = id,
             Up = true, Down = false, Left = false, Right = false, Shoot = false };
         game.ReceiveUserInput(input);
@@ -260,7 +263,7 @@ public class UnitTest1
     [Fact]
     public async Task BulletMotion()
     {
-        
+
         var hubContext = new TestHubContext();
         Game game = new(hubContext);
         var playerId = game.JoinGame();
@@ -438,7 +441,7 @@ public class UnitTest1
     [Fact]
     public void MapCatalogHasFixedMapsWithObstacles()
     {
-        Assert.Equal(4, MapCatalog.FixedMaps.Count);
+        Assert.Equal(19, MapCatalog.FixedMaps.Count);
         Assert.All(MapCatalog.FixedMaps, map => Assert.NotEmpty(map.Obstacles));
     }
 
@@ -493,13 +496,11 @@ public class UnitTest1
         {
             Map = MapCatalog.FixedMaps[1]
         };
-        var expectedSpawnPoint = game.Map.SpawnPoints[0];
+
 
         var playerId = game.JoinGame();
         var tank = game.Tanks.Single(tank => tank.Id == playerId);
 
-        Assert.Equal(expectedSpawnPoint.X, tank.PositionX);
-        Assert.Equal(expectedSpawnPoint.Y, tank.PositionY);
-        Assert.Equal(expectedSpawnPoint.Angle, tank.Angle);
+        Assert.Contains(game.Map.SpawnPoints, p => p.X == tank.PositionX && p.Y == tank.PositionY && p.Angle == tank.Angle);
     }
 }

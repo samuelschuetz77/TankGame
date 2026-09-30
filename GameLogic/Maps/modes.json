@@ -1,0 +1,26 @@
+{
+  "Standard": {
+    "width": 900,
+    "height": 700,
+    "viewWidth": 900,
+    "viewHeight": 700,
+    "maxPlayers": 8,
+    "spawnCount": 10
+  },
+  "BigMap": {
+    "width": 1800,
+    "height": 1400,
+    "viewWidth": 900,
+    "viewHeight": 700,
+    "maxPlayers": 20,
+    "spawnCount": 27
+  },
+  "Foggish": {
+    "width": 4500,
+    "height": 2800,
+    "viewWidth": 900,
+    "viewHeight": 700,
+    "maxPlayers": 40,
+    "spawnCount": 80
+  }
+}
