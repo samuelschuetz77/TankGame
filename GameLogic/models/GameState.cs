@@ -16,6 +16,7 @@ public record GameState
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
+    public IEnumerable<ExplosionState>? Explosions { get; init; }
 }
 
 public static class GameMatchTypes

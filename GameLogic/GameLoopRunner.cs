@@ -59,6 +59,10 @@ public class GameLoopRunner
         // Input and simulation both replace state; keep either update from overwriting the other.
         lock (game.StateLock)
         {
+        game.Explosions = game.Explosions
+            .Select(explosion => explosion with { TicksLeft = explosion.TicksLeft - 1 })
+            .Where(explosion => explosion.TicksLeft > 0)
+            .ToArray();
         // An ended match is frozen; updates keep going out so everyone sees the result
         if (game.Status != GameStatus.Ended)
         {

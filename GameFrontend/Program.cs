@@ -9,4 +9,6 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddSingleton<SignalRService>();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+DebugBridge.Service = host.Services.GetRequiredService<SignalRService>();
+await host.RunAsync();

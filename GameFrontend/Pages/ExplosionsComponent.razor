@@ -1,0 +1,21 @@
+@using GameLogic
+
+@* Kenney "Smoke particle assets" (CC0): 9 fireball frames, see images/Explosion/LICENSE.txt *@
+@foreach (var explosion in Explosions)
+{
+    var frame = Math.Min(FrameCount - 1, explosion.Age * FrameCount / Explosion.Ticks);
+    var progress = explosion.Age / (double)Explosion.Ticks;
+    var scale = (0.7 + 0.5 * progress).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+    var opacity = (1 - 0.7 * progress).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+    <img @key="explosion.Id" src=@($"images/Explosion/explosion{frame:00}.png") alt="" draggable="false"
+         style=@($"position: absolute; left: {explosion.X - Size / 2}px; top: {explosion.Y - Size / 2}px; width: {Size}px; height: {Size}px; transform: scale({scale}); opacity: {opacity}; pointer-events: none; user-select: none; z-index: 5;") />
+}
+
+@code {
+    [Parameter]
+    public IEnumerable<ExplosionState> Explosions { get; set; } = [];
+
+    private const int FrameCount = 9;
+    // Twice the size of a dumb bubble (10 px), so it marks the hit without hiding the tank
+    private const int Size = Bullet.BulletSize * 2 + 4;
+}

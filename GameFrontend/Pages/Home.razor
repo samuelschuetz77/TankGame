@@ -29,9 +29,10 @@
       <option>@GameMatchTypes.DeveloperSimulation</option>
     </select>
   </div>
-  <fieldset class="mb-2">
-    <legend class="form-label">Match settings</legend>
-    <label class="form-label d-block">
+  <details class="mb-3">
+    <summary class="form-label fs-5">Advanced settings</summary>
+    <div class="row row-cols-1 row-cols-md-3 g-3 mt-0">
+    <label class="form-label col">
       Reload time
       <select class="form-select" @bind=reloadTicks>
         @for (var ticks = MatchSettings.MinReloadTicks; ticks <= MatchSettings.MaxReloadTicks; ticks++)
@@ -40,16 +41,37 @@
         }
       </select>
     </label>
-    <label class="form-label d-block">
-      Bullet bounces
-      <select class="form-select" @bind=maxBounces>
-        @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+    <label class="form-label col">
+      Projectile
+      <select class="form-select" @bind=projectile>
+        @foreach (var type in Enum.GetValues<ProjectileType>())
         {
-          <option value="@bounces">@bounces</option>
+          <option value="@type">@type.Label()</option>
         }
       </select>
     </label>
-    <label class="form-label d-block">
+    @if (projectile == ProjectileType.DumbBubbles)
+    {
+      <label class="form-label col">
+        Bullet speed
+        <select class="form-select" @bind=bulletSpeed>
+          @foreach (var speed in MatchSettings.BulletSpeedChoices)
+          {
+            <option value="@speed">@speed</option>
+          }
+        </select>
+      </label>
+      <label class="form-label col">
+        Bullet bounces
+        <select class="form-select" @bind=maxBounces>
+          @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+          {
+            <option value="@bounces">@bounces</option>
+          }
+        </select>
+      </label>
+    }
+    <label class="form-label col">
       Health (hits to eliminate)
       <select class="form-select" @bind=health>
         @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
@@ -58,7 +80,7 @@
         }
       </select>
     </label>
-    <label class="form-label d-block">
+    <label class="form-label col">
       Lives (deaths before you're out for good)
       <select class="form-select" @bind=lives>
         @for (var count = MatchSettings.MinLives; count <= MatchSettings.MaxLives; count++)
@@ -67,7 +89,7 @@
         }
       </select>
     </label>
-    <label class="form-label d-block">
+    <label class="form-label col">
       Respawn delay
       <select class="form-select" @bind=respawnSeconds>
         @for (var seconds = 0; seconds <= MatchSettings.MaxRespawnSeconds; seconds++)
@@ -76,7 +98,7 @@
         }
       </select>
     </label>
-    <label class="form-label d-block">
+    <label class="form-label col">
       Tank speed
       <select class="form-select" @bind=speedMultiplier>
         @foreach (var choice in MatchSettings.SpeedChoices)
@@ -85,7 +107,7 @@
         }
       </select>
     </label>
-    <label class="form-label d-block">
+    <label class="form-label col">
       Time limit
       <select class="form-select" @bind=timeLimitMinutes>
         @foreach (var minutes in MatchSettings.TimeLimitChoices)
@@ -94,7 +116,8 @@
         }
       </select>
     </label>
-  </fieldset>
+    </div>
+  </details>
   <button class="btn btn-success" type="submit">Create Match</button>
 </form>
 
@@ -132,7 +155,12 @@
         <ul class="list-unstyled small mb-3">
           <li>Health: @settings.Health hit@(settings.Health == 1 ? "" : "s")</li>
           <li>Lives: @settings.Lives · respawn after @settings.RespawnSeconds s</li>
-          <li>Reload: @((settings.ReloadTicks / 10.0).ToString("0.0")) s · bounces: @settings.MaxBounces</li>
+          <li>Projectile: @settings.Projectile.Label()</li>
+          @if (settings.Projectile == ProjectileType.DumbBubbles)
+          {
+            <li>Bullet speed: @settings.BulletSpeed · bounces: @settings.MaxBounces</li>
+          }
+          <li>Reload: @((settings.ReloadTicks / 10.0).ToString("0.0")) s</li>
           <li>Tank speed: @(settings.SpeedMultiplier)×</li>
           <li>Time limit: @(settings.TimeLimitMinutes == 0 ? "off" : $"{settings.TimeLimitMinutes} min")</li>
         </ul>
@@ -150,6 +178,8 @@
   private string selectedMatchType = "Multiplayer";
   private int reloadTicks = new MatchSettings().ReloadTicks;
   private int maxBounces = new MatchSettings().MaxBounces;
+  private ProjectileType projectile = new MatchSettings().Projectile;
+  private int bulletSpeed = new MatchSettings().BulletSpeed;
   private int health = new MatchSettings().Health;
   private int lives = new MatchSettings().Lives;
   private int respawnSeconds = new MatchSettings().RespawnSeconds;
@@ -190,6 +220,8 @@
     {
       ReloadTicks = reloadTicks,
       MaxBounces = maxBounces,
+      Projectile = projectile,
+      BulletSpeed = bulletSpeed,
       Health = health,
       Lives = lives,
       RespawnSeconds = respawnSeconds,

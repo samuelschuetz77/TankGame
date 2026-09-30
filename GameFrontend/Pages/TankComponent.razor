@@ -58,8 +58,8 @@ else if (tank != null && !tank.Eliminated)
         <div style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
             <div style=@($"height: 100%; width: {Math.Clamp(tank.Health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
         </div>
-        <div title="@tank.Id" style="position: absolute; top: 100%; left: -10px; width: calc(100% + 20px); text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; line-height: 14px;">
-            @tank.Id.ToString()[^5..] ♥@tank.Health · @Math.Max(0, MaxLives - tank.Deaths) @(MaxLives - tank.Deaths == 1 ? "life" : "lives")
+        <div title="@tank.Id" style="position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px;">
+            @tank.Id.ToString()[^5..] · HP @tank.Health/@MaxHealth · @Math.Max(0, MaxLives - tank.Deaths) @(MaxLives - tank.Deaths == 1 ? "life" : "lives")
         </div>
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>

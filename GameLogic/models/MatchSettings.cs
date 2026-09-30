@@ -1,5 +1,22 @@
 namespace GameLogic;
 
+public static class ProjectileTypeExtensions
+{
+    public static string Label(this ProjectileType type) => type switch
+    {
+        ProjectileType.Realistic => "Realistic (instant hit)",
+        _ => "Dumb bubbles",
+    };
+}
+
+public enum ProjectileType
+{
+    // Slow visible bubbles that fly across the board and can bounce; speed is configurable
+    DumbBubbles,
+    // Instant hit at realistic tank-shell speed, with a small explosion where it lands
+    Realistic,
+}
+
 // Match rules the creator picks; they apply to every player in the match
 public record MatchSettings
 {
@@ -9,6 +26,9 @@ public record MatchSettings
     public const int MaxBouncesAllowed = 5;
     public const int MinHealth = 1;
     public const int MaxHealth = 10;
+    public const int DefaultBulletSpeed = Bullet.DefaultSpeed;
+    // Pixels per tick. Capped so a bubble can't skip past a tank in one step
+    public static readonly int[] BulletSpeedChoices = [5, 10, 15, 20, 25, 30, 40];
     public const int DefaultLives = 5;
     public const int MinLives = 1;
     public const int MaxLives = 10;
@@ -19,6 +39,9 @@ public record MatchSettings
 
     // Game ticks between shots (10 ticks = 1 second)
     public int ReloadTicks { get; init; } = 10;
+    public ProjectileType Projectile { get; init; } = ProjectileType.DumbBubbles;
+    // Dumb bubbles only
+    public int BulletSpeed { get; init; } = DefaultBulletSpeed;
     public int MaxBounces { get; init; } = 1;
     public int Health { get; init; } = DefaultHealth;
     // Deaths a tank can take; the last death is permanent
@@ -32,6 +55,8 @@ public record MatchSettings
     public static MatchSettings Sanitize(MatchSettings incoming) => new()
     {
         ReloadTicks = Math.Clamp(incoming.ReloadTicks, MinReloadTicks, MaxReloadTicks),
+        Projectile = Enum.IsDefined(incoming.Projectile) ? incoming.Projectile : ProjectileType.DumbBubbles,
+        BulletSpeed = BulletSpeedChoices.MinBy(choice => Math.Abs((long)choice - incoming.BulletSpeed)),
         MaxBounces = Math.Clamp(incoming.MaxBounces, 0, MaxBouncesAllowed),
         Health = Math.Clamp(incoming.Health, MinHealth, MaxHealth),
         Lives = Math.Clamp(incoming.Lives, MinLives, MaxLives),

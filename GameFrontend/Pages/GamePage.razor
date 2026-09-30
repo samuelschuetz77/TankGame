@@ -43,6 +43,7 @@
           }
         }
         <BulletsComponent Bullets="@(game.Bullets ?? [])" />
+        <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
       </PlayerControls>
     </div>
 
@@ -123,14 +124,35 @@
           </select>
         </label>
         <label class="form-label d-block">
-          Bullet bounces
-          <select class="form-select" value="@game.Settings.MaxBounces" @onchange="SetMaxBounces">
-            @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+          Projectile
+          <select class="form-select" value="@game.Settings.Projectile" @onchange="SetProjectile">
+            @foreach (var type in Enum.GetValues<ProjectileType>())
             {
-              <option value="@bounces">@bounces</option>
+              <option value="@type">@type.Label()</option>
             }
           </select>
         </label>
+        @if (game.Settings.Projectile == ProjectileType.DumbBubbles)
+        {
+          <label class="form-label d-block">
+            Bullet speed
+            <select class="form-select" value="@game.Settings.BulletSpeed" @onchange="SetBulletSpeed">
+              @foreach (var speed in MatchSettings.BulletSpeedChoices)
+              {
+                <option value="@speed">@speed</option>
+              }
+            </select>
+          </label>
+          <label class="form-label d-block">
+            Bullet bounces
+            <select class="form-select" value="@game.Settings.MaxBounces" @onchange="SetMaxBounces">
+              @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+              {
+                <option value="@bounces">@bounces</option>
+              }
+            </select>
+          </label>
+        }
         <label class="form-label d-block">
           Respawn delay
           <select class="form-select" value="@game.Settings.RespawnSeconds" @onchange="SetRespawnSeconds">
@@ -282,6 +304,15 @@
 
   private Task SetRespawnSeconds(ChangeEventArgs e) =>
     SendMatchSettings(game!.Settings with { RespawnSeconds = ReadInt(e, game.Settings.RespawnSeconds) });
+
+  private Task SetProjectile(ChangeEventArgs e) =>
+    SendMatchSettings(game!.Settings with
+    {
+      Projectile = Enum.TryParse<ProjectileType>(e.Value?.ToString(), out var type) ? type : game.Settings.Projectile
+    });
+
+  private Task SetBulletSpeed(ChangeEventArgs e) =>
+    SendMatchSettings(game!.Settings with { BulletSpeed = ReadInt(e, game.Settings.BulletSpeed) });
 
   private Task SetMaxBounces(ChangeEventArgs e) =>
     SendMatchSettings(game!.Settings with { MaxBounces = ReadInt(e, game.Settings.MaxBounces) });

@@ -30,6 +30,7 @@ public class Game
     public Guid? CreatorId { get; private set; }
     public IEnumerable<Tank> Tanks { get; internal set; } = [];
     public IEnumerable<Bullet> Bullets { get; internal set; } = [];
+    public IEnumerable<Explosion> Explosions { get; internal set; } = [];
     public CancellationTokenSource CancellationTokenSource { get; set; } = new CancellationTokenSource();
     public GameLoopRunner loopRunner { get; set; }
 
@@ -66,6 +67,13 @@ public class Game
                 Deaths = t.Deaths,
                 RespawnTicksLeft = t.RespawnTicksLeft,
                 HitsLanded = t.HitsLanded,
+            }).ToArray(),
+            Explosions = Explosions.Select(e => new ExplosionState()
+            {
+                Id = e.Id,
+                X = e.X,
+                Y = e.Y,
+                Age = Explosion.Ticks - e.TicksLeft
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
             {
@@ -112,6 +120,7 @@ public class Game
         if (Status == GameStatus.Ended)
             return;
 
+        Tank? instantShooter = null;
         Tanks = Tanks.Select(t =>
         {
             // Eliminated (or respawning) players keep watching but can't drive or shoot
@@ -133,7 +142,10 @@ public class Game
                 // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
                 if (updatedTank.Shooting && !t.Shooting && t.ReloadTicksLeft == 0)
                 {
-                    Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces));
+                    if (Settings.Projectile == ProjectileType.Realistic)
+                        instantShooter = updatedTank;
+                    else
+                        Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
                     updatedTank = updatedTank with { ReloadTicksLeft = Settings.ReloadTicks };
                 }
 
@@ -149,7 +161,23 @@ public class Game
             return t;
         })
         .ToArray();
+
+        if (instantShooter is not null)
+            FireInstantShot(instantShooter);
         }
+    }
+
+    // Realistic projectile: lands the moment it's fired. Damage only counts once a 2nd player has joined
+    private void FireInstantShot(Tank shooter)
+    {
+        var tanks = Tanks.ToList();
+        var shot = Combat.TraceShot(shooter, tanks, Map, DeveloperSettings);
+        if (shot.HitIndex is int hitIndex && StartedAtTick is not null)
+        {
+            Combat.ApplyHit(tanks, hitIndex, shooter.Id, Settings);
+            Tanks = tanks;
+        }
+        Explosions = Explosions.Append(Explosion.At(shot.X, shot.Y)).ToArray();
     }
 
     public void UpdateDeveloperSettings(DeveloperGameSettings settings)

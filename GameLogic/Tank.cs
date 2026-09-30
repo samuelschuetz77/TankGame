@@ -81,7 +81,7 @@ public record Tank
     }
 
     // Bullet leaving the muzzle along the turret's direction
-    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings, int bounces = 0)
+    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings, int bounces = 0, int speed = Bullet.DefaultSpeed)
     {
         var (centerX, centerY) = GetCenter(tank, settings);
         double radians = Math.PI * tank.TurretAngle / 180.0;
@@ -94,7 +94,8 @@ public record Tank
             PositionY = muzzleY - Bullet.BulletSize / 2,
             Angle = tank.TurretAngle,
             OwnerId = tank.Id,
-            BouncesLeft = bounces
+            BouncesLeft = bounces,
+            Speed = speed
         };
     }
 

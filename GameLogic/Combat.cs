@@ -28,17 +28,60 @@ public static class Combat
                 continue;
             }
 
-            var target = tankList[targetIndex];
-            var health = Math.Max(0, target.Health - 1);
-            tankList[targetIndex] = health > 0 ? target with { Health = health } : Destroy(target, match);
-
-            // Shooting yourself with a bounce doesn't count as a hit landed
-            var shooterIndex = tankList.FindIndex(tank => tank.Id == bullet.OwnerId);
-            if (shooterIndex >= 0 && bullet.OwnerId != target.Id)
-                tankList[shooterIndex] = tankList[shooterIndex] with { HitsLanded = tankList[shooterIndex].HitsLanded + 1 };
+            ApplyHit(tankList, targetIndex, bullet.OwnerId, match);
         }
 
         return (tankList.ToArray(), flying.ToArray());
+    }
+
+    // One hit: 1 health off the target, credited to the shooter
+    public static void ApplyHit(List<Tank> tankList, int targetIndex, Guid shooterId, MatchSettings match)
+    {
+        var target = tankList[targetIndex];
+        var health = Math.Max(0, target.Health - 1);
+        tankList[targetIndex] = health > 0 ? target with { Health = health } : Destroy(target, match);
+
+        // Shooting yourself with a bounce doesn't count as a hit landed
+        var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);
+        if (shooterIndex >= 0 && shooterId != target.Id)
+            tankList[shooterIndex] = tankList[shooterIndex] with { HitsLanded = tankList[shooterIndex].HitsLanded + 1 };
+    }
+
+    // Instant shot: walk from the muzzle along the turret until something solid is met.
+    // Steps are smaller than any tank or wall, so nothing can be skipped
+    public static InstantShot TraceShot(Tank shooter, IReadOnlyList<Tank> tanks, GameMap map, DeveloperGameSettings settings)
+    {
+        const int step = 4;
+        var (centerX, centerY) = Tank.GetCenter(shooter, settings);
+        var radians = Math.PI * shooter.TurretAngle / 180.0;
+        var range = (int)Math.Ceiling(Math.Sqrt((double)map.Width * map.Width + (double)map.Height * map.Height));
+        var (x, y) = (centerX, centerY);
+
+        for (var distance = Tank.BarrelLength; distance <= range; distance += step)
+        {
+            x = centerX + (int)Math.Round(distance * Math.Cos(radians));
+            y = centerY + (int)Math.Round(distance * Math.Sin(radians));
+            if (map.BlocksPoint(x, y))
+                return new InstantShot(x, y, null);
+
+            var hit = -1;
+            for (var i = 0; i < tanks.Count; i++)
+            {
+                var tank = tanks[i];
+                if (tank.Id == shooter.Id || tank.Eliminated || tank.Respawning)
+                    continue;
+                var area = Tank.GetCollisionArea(tank, settings);
+                if (x >= area.X && x <= area.X + area.Width && y >= area.Y && y <= area.Y + area.Height)
+                {
+                    hit = i;
+                    break;
+                }
+            }
+            if (hit >= 0)
+                return new InstantShot(x, y, hit);
+        }
+
+        return new InstantShot(x, y, null);
     }
 
     // Health hit 0: that's a death. The last life is permanent; otherwise the tank waits to respawn

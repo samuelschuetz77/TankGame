@@ -16,7 +16,9 @@ namespace GameLogic
         public Guid OwnerId { get; init; }
         // Wall bounces left; set from the match settings when fired
         public int BouncesLeft { get; init; }
-        private const int Speed = 20;
+        public const int DefaultSpeed = 20;
+        // Pixels per tick; set from the match settings when fired
+        public int Speed { get; init; } = DefaultSpeed;
         public const int BulletSize = 10;
 
         public static Bullet? MoveBullet(Bullet bullet)
@@ -31,8 +33,8 @@ namespace GameLogic
                 return null;
             }
             double radians = Math.PI * bullet.Angle / 180.0;
-            var deltaX = (int)(Speed * Math.Cos(radians));
-            var deltaY = (int)(Speed * Math.Sin(radians));
+            var deltaX = (int)(bullet.Speed * Math.Cos(radians));
+            var deltaY = (int)(bullet.Speed * Math.Sin(radians));
             if (!map.Blocks(Area(bullet.PositionX + deltaX, bullet.PositionY + deltaY)))
             {
                 return bullet with

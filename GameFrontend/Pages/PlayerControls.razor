@@ -16,6 +16,14 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     @ChildContent
 </div>
 <style>
+    /* Double-clicking a tank (to shoot) must not select its label or drag its image */
+    .game-board, .game-board * {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .game-board img {
+        -webkit-user-drag: none;
+    }
     .game-board:focus {
     border-color: blue !important;
     background-color: rgb(240, 240, 240);
