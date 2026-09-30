@@ -63,12 +63,14 @@ public class LobbyHub : Hub
 
   }
 
-  public void PlayerInput(PlayerInputRequest request)
+  public async Task PlayerInput(PlayerInputRequest request)
   {
     Console.WriteLine("got player input");
     Console.WriteLine(request);
     var game = lobby.Games.First(g => g.Name == request.GameName);
-    game.ReceiveUserInput(request);
+    // An instant shot shouldn't wait for the next 100 ms tick to show its explosion
+    if (game.ReceiveUserInput(request))
+      await game.BroadcastUpdate();
   }
 
   public async Task UpdateDeveloperSettings(string gameName, DeveloperGameSettings settings)

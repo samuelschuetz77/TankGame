@@ -117,12 +117,13 @@ public class Game
         }
     }
 
-    public void ReceiveUserInput(PlayerInputRequest request)
+    // Returns true when an instant shot just landed, so the caller can push the explosion to clients right away
+    public bool ReceiveUserInput(PlayerInputRequest request)
     {
         lock (StateLock)
         {
         if (Status == GameStatus.Ended)
-            return;
+            return false;
 
         Tank? instantShooter = null;
         Tanks = Tanks.Select(t =>
@@ -169,6 +170,7 @@ public class Game
 
         if (instantShooter is not null)
             FireInstantShot(instantShooter);
+        return instantShooter is not null;
         }
     }
 
