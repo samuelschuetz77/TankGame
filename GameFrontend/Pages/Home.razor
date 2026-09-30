@@ -33,13 +33,8 @@
     <summary class="form-label fs-5">Advanced settings</summary>
     <div class="row row-cols-1 row-cols-md-3 g-3 mt-0">
     <label class="form-label col">
-      Reload time
-      <select class="form-select" @bind=reloadTicks>
-        @for (var ticks = MatchSettings.MinReloadTicks; ticks <= MatchSettings.MaxReloadTicks; ticks++)
-        {
-          <option value="@ticks">@((ticks / 10.0).ToString("0.0")) s</option>
-        }
-      </select>
+      Reload time (ms)
+      <input class="form-control" type="number" min="@MatchSettings.MinReloadMs" max="@MatchSettings.MaxReloadMs" step="50" @bind=reloadMs />
     </label>
     <label class="form-label col">
       Projectile
@@ -160,7 +155,7 @@
           {
             <li>Bullet speed: @settings.BulletSpeed · bounces: @settings.MaxBounces</li>
           }
-          <li>Reload: @((settings.ReloadTicks / 10.0).ToString("0.0")) s</li>
+          <li>Reload: @settings.ReloadMs ms</li>
           <li>Tank speed: @(settings.SpeedMultiplier)×</li>
           <li>Time limit: @(settings.TimeLimitMinutes == 0 ? "off" : $"{settings.TimeLimitMinutes} min")</li>
         </ul>
@@ -176,7 +171,7 @@
   private string userInputGameName = "";
   private string selectedMapName = MapCatalog.DefaultMap.Name;
   private string selectedMatchType = "Multiplayer";
-  private int reloadTicks = new MatchSettings().ReloadTicks;
+  private int reloadMs = new MatchSettings().ReloadMs;
   private int maxBounces = new MatchSettings().MaxBounces;
   private ProjectileType projectile = new MatchSettings().Projectile;
   private int bulletSpeed = new MatchSettings().BulletSpeed;
@@ -218,7 +213,7 @@
     
     var settings = new MatchSettings
     {
-      ReloadTicks = reloadTicks,
+      ReloadMs = reloadMs,
       MaxBounces = maxBounces,
       Projectile = projectile,
       BulletSpeed = bulletSpeed,

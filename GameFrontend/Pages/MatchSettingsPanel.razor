@@ -1,0 +1,134 @@
+@using GameLogic
+
+@* Match rules the creator can change mid-match. Developer simulation also unlocks health, lives and the time limit *@
+<aside style="width: 220px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
+  <h3 style="font-size: 1rem; margin-bottom: 12px;">@Title</h3>
+  <label class="form-label d-block">
+    Projectile
+    <select class="form-select" value="@Settings.Projectile" @onchange="SetProjectile">
+      @foreach (var type in Enum.GetValues<ProjectileType>())
+      {
+        <option value="@type">@type.Label()</option>
+      }
+    </select>
+  </label>
+  @if (Settings.Projectile == ProjectileType.DumbBubbles)
+  {
+    <label class="form-label d-block">
+      Bullet speed
+      <select class="form-select" value="@Settings.BulletSpeed" @onchange="SetBulletSpeed">
+        @foreach (var speed in MatchSettings.BulletSpeedChoices)
+        {
+          <option value="@speed">@speed</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Bullet bounces
+      <select class="form-select" value="@Settings.MaxBounces" @onchange="SetMaxBounces">
+        @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
+        {
+          <option value="@bounces">@bounces</option>
+        }
+      </select>
+    </label>
+  }
+  <label class="form-label d-block">
+    Reload time (ms)
+    <input class="form-control" type="number" min="@MatchSettings.MinReloadMs" max="@MatchSettings.MaxReloadMs" step="50"
+           value="@Settings.ReloadMs" @onchange="SetReloadMs" />
+  </label>
+  <label class="form-label d-block">
+    Tank speed
+    <select class="form-select" value="@Settings.SpeedMultiplier" @onchange="SetSpeedMultiplier">
+      @foreach (var choice in MatchSettings.SpeedChoices)
+      {
+        <option value="@choice">@(choice)×</option>
+      }
+    </select>
+  </label>
+  <label class="form-label d-block">
+    Respawn delay
+    <select class="form-select" value="@Settings.RespawnSeconds" @onchange="SetRespawnSeconds">
+      @for (var seconds = 0; seconds <= MatchSettings.MaxRespawnSeconds; seconds++)
+      {
+        <option value="@seconds">@seconds s</option>
+      }
+    </select>
+  </label>
+  @if (AllowLockedEdits)
+  {
+    <label class="form-label d-block">
+      Health (hits to eliminate)
+      <select class="form-select" value="@Settings.Health" @onchange="SetHealth">
+        @for (var hits = MatchSettings.MinHealth; hits <= MatchSettings.MaxHealth; hits++)
+        {
+          <option value="@hits">@hits</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Lives
+      <select class="form-select" value="@Settings.Lives" @onchange="SetLives">
+        @for (var count = MatchSettings.MinLives; count <= MatchSettings.MaxLives; count++)
+        {
+          <option value="@count">@count</option>
+        }
+      </select>
+    </label>
+    <label class="form-label d-block">
+      Time limit
+      <select class="form-select" value="@Settings.TimeLimitMinutes" @onchange="SetTimeLimit">
+        @foreach (var minutes in MatchSettings.TimeLimitChoices)
+        {
+          <option value="@minutes">@(minutes == 0 ? "Off" : $"{minutes} min")</option>
+        }
+      </select>
+    </label>
+  }
+  else
+  {
+    <p class="small text-muted mb-0">
+      Locked: health @Settings.Health, lives @Settings.Lives,
+      time limit @(Settings.TimeLimitMinutes == 0 ? "off" : $"{Settings.TimeLimitMinutes} min")
+    </p>
+  }
+</aside>
+
+@code {
+  [Parameter, EditorRequired]
+  public MatchSettings Settings { get; set; } = new();
+
+  // Raised with the full new settings; the server checks the sender is the creator
+  [Parameter, EditorRequired]
+  public EventCallback<MatchSettings> Changed { get; set; }
+
+  [Parameter]
+  public string Title { get; set; } = "Match settings";
+
+  [Parameter]
+  public bool AllowLockedEdits { get; set; }
+
+  private Task SetProjectile(ChangeEventArgs e) =>
+    Changed.InvokeAsync(Settings with
+    {
+      Projectile = Enum.TryParse<ProjectileType>(e.Value?.ToString(), out var type) ? type : Settings.Projectile
+    });
+
+  private Task SetBulletSpeed(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { BulletSpeed = ReadInt(e, Settings.BulletSpeed) });
+  private Task SetMaxBounces(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { MaxBounces = ReadInt(e, Settings.MaxBounces) });
+  private Task SetReloadMs(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { ReloadMs = ReadInt(e, Settings.ReloadMs) });
+  private Task SetRespawnSeconds(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { RespawnSeconds = ReadInt(e, Settings.RespawnSeconds) });
+  private Task SetHealth(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { Health = ReadInt(e, Settings.Health) });
+  private Task SetLives(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { Lives = ReadInt(e, Settings.Lives) });
+  private Task SetTimeLimit(ChangeEventArgs e) => Changed.InvokeAsync(Settings with { TimeLimitMinutes = ReadInt(e, Settings.TimeLimitMinutes) });
+
+  private Task SetSpeedMultiplier(ChangeEventArgs e) =>
+    Changed.InvokeAsync(Settings with
+    {
+      SpeedMultiplier = double.TryParse(e.Value?.ToString(), out var value) ? value : Settings.SpeedMultiplier
+    });
+
+  private static int ReadInt(ChangeEventArgs e, int fallback) =>
+    int.TryParse(e.Value?.ToString(), out var value) ? value : fallback;
+}

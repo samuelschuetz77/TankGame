@@ -120,7 +120,7 @@ public static class Combat
                 TurretAngle = spawn.Angle,
                 Health = match.Health,
                 RespawnTicksLeft = 0,
-                ReloadTicksLeft = 0,
+                NextShotAtMs = 0,
             };
         }).ToArray();
 

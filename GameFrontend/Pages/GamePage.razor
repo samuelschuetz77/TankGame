@@ -52,6 +52,24 @@
       <aside style="width: 280px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
         <h3 style="font-size: 1rem; margin-bottom: 12px;">Developer settings</h3>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="ResetDeveloperSettings">Reset to defaults</button>
+        <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddTargetTank">Add target tank</button>
+        <table class="table table-sm small mb-3">
+          <thead><tr><th>Tank</th><th>HP</th><th>Lives</th><th>Hits</th></tr></thead>
+          <tbody>
+            @foreach (var tank in game.Tanks ?? [])
+            {
+              <tr>
+                <td>@tank.Id.ToString()[^5..]@(tank.Id == PlayerId ? " (you)" : "")</td>
+                <td>@tank.Health/@game.Settings.Health</td>
+                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : (game.Settings.Lives - tank.Deaths).ToString())</td>
+                <td>@tank.HitsLanded</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="small text-muted">
+          @game.Settings.Projectile.Label() · bullets @(game.Bullets?.Count() ?? 0) · explosions @(game.Explosions?.Count() ?? 0)
+        </p>
         <label class="form-check mb-2">
           <input class="form-check-input" type="checkbox" @bind="showHitbox"> Show hitbox
         </label>
@@ -103,70 +121,8 @@
 
     @if (game.CreatorId == PlayerId)
     {
-      <aside style="width: 220px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
-        <h3 style="font-size: 1rem; margin-bottom: 12px;">Match settings</h3>
-        <label class="form-label d-block">
-          Tank speed
-          <select class="form-select" value="@game.Settings.SpeedMultiplier" @onchange="SetSpeedMultiplier">
-            @foreach (var choice in MatchSettings.SpeedChoices)
-            {
-              <option value="@choice">@(choice)×</option>
-            }
-          </select>
-        </label>
-        <label class="form-label d-block">
-          Reload time
-          <select class="form-select" value="@game.Settings.ReloadTicks" @onchange="SetReloadTicks">
-            @for (var ticks = MatchSettings.MinReloadTicks; ticks <= MatchSettings.MaxReloadTicks; ticks++)
-            {
-              <option value="@ticks">@((ticks / 10.0).ToString("0.0")) s</option>
-            }
-          </select>
-        </label>
-        <label class="form-label d-block">
-          Projectile
-          <select class="form-select" value="@game.Settings.Projectile" @onchange="SetProjectile">
-            @foreach (var type in Enum.GetValues<ProjectileType>())
-            {
-              <option value="@type">@type.Label()</option>
-            }
-          </select>
-        </label>
-        @if (game.Settings.Projectile == ProjectileType.DumbBubbles)
-        {
-          <label class="form-label d-block">
-            Bullet speed
-            <select class="form-select" value="@game.Settings.BulletSpeed" @onchange="SetBulletSpeed">
-              @foreach (var speed in MatchSettings.BulletSpeedChoices)
-              {
-                <option value="@speed">@speed</option>
-              }
-            </select>
-          </label>
-          <label class="form-label d-block">
-            Bullet bounces
-            <select class="form-select" value="@game.Settings.MaxBounces" @onchange="SetMaxBounces">
-              @for (var bounces = 0; bounces <= MatchSettings.MaxBouncesAllowed; bounces++)
-              {
-                <option value="@bounces">@bounces</option>
-              }
-            </select>
-          </label>
-        }
-        <label class="form-label d-block">
-          Respawn delay
-          <select class="form-select" value="@game.Settings.RespawnSeconds" @onchange="SetRespawnSeconds">
-            @for (var seconds = 0; seconds <= MatchSettings.MaxRespawnSeconds; seconds++)
-            {
-              <option value="@seconds">@seconds s</option>
-            }
-          </select>
-        </label>
-        <p class="small text-muted mb-0">
-          Locked: health @game.Settings.Health, lives @game.Settings.Lives,
-          time limit @(game.Settings.TimeLimitMinutes == 0 ? "off" : $"{game.Settings.TimeLimitMinutes} min")
-        </p>
-      </aside>
+      <MatchSettingsPanel Settings="game.Settings" Changed="SendMatchSettings"
+                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)" />
     }
   </div>
 }
@@ -296,31 +252,16 @@
     await SendDeveloperSettings();
   }
 
-  private Task SetSpeedMultiplier(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with { SpeedMultiplier = ReadDouble(e, game.Settings.SpeedMultiplier) });
-
-  private Task SetReloadTicks(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with { ReloadTicks = ReadInt(e, game.Settings.ReloadTicks) });
-
-  private Task SetRespawnSeconds(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with { RespawnSeconds = ReadInt(e, game.Settings.RespawnSeconds) });
-
-  private Task SetProjectile(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with
-    {
-      Projectile = Enum.TryParse<ProjectileType>(e.Value?.ToString(), out var type) ? type : game.Settings.Projectile
-    });
-
-  private Task SetBulletSpeed(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with { BulletSpeed = ReadInt(e, game.Settings.BulletSpeed) });
-
-  private Task SetMaxBounces(ChangeEventArgs e) =>
-    SendMatchSettings(game!.Settings with { MaxBounces = ReadInt(e, game.Settings.MaxBounces) });
-
   // The server checks that this player is the creator and echoes the result in the next update
   private async Task SendMatchSettings(MatchSettings settings)
   {
     await signalR.HubConnection?.SendAsync(Messages.UpdateMatchSettings, GameName, PlayerId, settings)!;
+  }
+
+  // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
+  private async Task AddTargetTank()
+  {
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName)!;
   }
 
   private async Task SetSlideAlongWalls(ChangeEventArgs e)

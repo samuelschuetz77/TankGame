@@ -21,8 +21,9 @@ public enum ProjectileType
 public record MatchSettings
 {
     public const int DefaultHealth = 3;
-    public const int MinReloadTicks = 2;
-    public const int MaxReloadTicks = 30;
+    public const int MinReloadMs = 50;
+    public const int MaxReloadMs = 5000;
+    public const int DefaultReloadMs = 1000;
     public const int MaxBouncesAllowed = 5;
     public const int MinHealth = 1;
     public const int MaxHealth = 10;
@@ -37,8 +38,8 @@ public record MatchSettings
     // 0 = no time limit
     public static readonly int[] TimeLimitChoices = [0, 1, 2, 3, 5, 10];
 
-    // Game ticks between shots (10 ticks = 1 second)
-    public int ReloadTicks { get; init; } = 10;
+    // Milliseconds before a tank can fire again after a shot
+    public int ReloadMs { get; init; } = DefaultReloadMs;
     public ProjectileType Projectile { get; init; } = ProjectileType.DumbBubbles;
     // Dumb bubbles only
     public int BulletSpeed { get; init; } = DefaultBulletSpeed;
@@ -54,7 +55,7 @@ public record MatchSettings
     // Clients can send anything; snap every value to an allowed choice
     public static MatchSettings Sanitize(MatchSettings incoming) => new()
     {
-        ReloadTicks = Math.Clamp(incoming.ReloadTicks, MinReloadTicks, MaxReloadTicks),
+        ReloadMs = Math.Clamp(incoming.ReloadMs, MinReloadMs, MaxReloadMs),
         Projectile = Enum.IsDefined(incoming.Projectile) ? incoming.Projectile : ProjectileType.DumbBubbles,
         BulletSpeed = BulletSpeedChoices.MinBy(choice => Math.Abs((long)choice - incoming.BulletSpeed)),
         MaxBounces = Math.Clamp(incoming.MaxBounces, 0, MaxBouncesAllowed),

@@ -7,6 +7,8 @@ public class Game
 {
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
+    // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
+    public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
     // Null while playing, and also when an ended match is a draw
@@ -73,6 +75,8 @@ public class Game
                 Id = e.Id,
                 X = e.X,
                 Y = e.Y,
+                FromX = e.FromX,
+                FromY = e.FromY,
                 Age = Explosion.Ticks - e.TicksLeft
             }).ToArray(),
             Bullets = Bullets.Select(b => new BulletState()
@@ -140,13 +144,14 @@ public class Game
                 updatedTank = Tank.AimTurret(updatedTank, DeveloperSettings);
 
                 // Fire once per press, and only when reloaded; a press during reload is dropped, not queued
-                if (updatedTank.Shooting && !t.Shooting && t.ReloadTicksLeft == 0)
+                var now = Clock();
+                if (updatedTank.Shooting && !t.Shooting && now >= t.NextShotAtMs)
                 {
                     if (Settings.Projectile == ProjectileType.Realistic)
                         instantShooter = updatedTank;
                     else
                         Bullets = Bullets.Append(Tank.FireBullet(updatedTank, DeveloperSettings, Settings.MaxBounces, Settings.BulletSpeed));
-                    updatedTank = updatedTank with { ReloadTicksLeft = Settings.ReloadTicks };
+                    updatedTank = updatedTank with { NextShotAtMs = now + Settings.ReloadMs };
                 }
 
                 //if (updatedTank.Bullet != null)
@@ -177,7 +182,11 @@ public class Game
             Combat.ApplyHit(tanks, hitIndex, shooter.Id, Settings);
             Tanks = tanks;
         }
-        Explosions = Explosions.Append(Explosion.At(shot.X, shot.Y)).ToArray();
+        var (centerX, centerY) = Tank.GetCenter(shooter, DeveloperSettings);
+        var radians = Math.PI * shooter.TurretAngle / 180.0;
+        var muzzleX = centerX + (int)Math.Round(Tank.BarrelLength * Math.Cos(radians));
+        var muzzleY = centerY + (int)Math.Round(Tank.BarrelLength * Math.Sin(radians));
+        Explosions = Explosions.Append(Explosion.At(shot.X, shot.Y, muzzleX, muzzleY)).ToArray();
     }
 
     public void UpdateDeveloperSettings(DeveloperGameSettings settings)
@@ -200,14 +209,26 @@ public class Game
         };
     }
 
-    // Only the creator can change settings; health and time limit stay as the match started
+    // Only the creator can change settings; health, lives and time limit stay as the match started (except in developer simulation)
     public void UpdateMatchSettings(Guid playerId, MatchSettings incoming)
     {
         lock (StateLock)
         {
             if (playerId != CreatorId || Status == GameStatus.Ended)
                 return;
-            settings = MatchSettings.Sanitize(incoming).WithLockedFrom(settings);
+            var sanitized = MatchSettings.Sanitize(incoming);
+            // Developer simulation is for experimenting, so nothing stays locked there
+            if (MatchType != GameMatchTypes.DeveloperSimulation)
+            {
+                settings = sanitized.WithLockedFrom(settings);
+                return;
+            }
+
+            var healthChanged = sanitized.Health != settings.Health;
+            settings = sanitized;
+            // A new health value applies to everyone still playing, so the change is visible straight away
+            if (healthChanged)
+                Tanks = Tanks.Select(t => t.Eliminated || t.Respawning ? t : t with { Health = sanitized.Health }).ToArray();
         }
     }
 

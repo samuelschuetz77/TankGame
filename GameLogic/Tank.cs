@@ -31,8 +31,8 @@ public record Tank
     public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out
     public int HitsLanded { get; init; }
-    // Ticks until the tank can fire again; 0 = ready
-    public int ReloadTicksLeft { get; init; }
+    // Game clock time (ms) at which the tank may fire again; 0 = ready
+    public long NextShotAtMs { get; init; }
     //public Bullet Bullet { get; set; } = new();
 
     // Distance from the turret pivot to the muzzle, matching the drawn barrel
@@ -53,8 +53,7 @@ public record Tank
         if (tank.Eliminated || tank.Respawning)
             return tank;
 
-        var reloading = tank with { ReloadTicksLeft = Math.Max(0, tank.ReloadTicksLeft - 1) };
-        var turnedShip = CalculateNewAngleAndSpeed(reloading, settings);
+        var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
         var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);
         return AimTurret(movedShip, settings);

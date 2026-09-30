@@ -335,7 +335,8 @@ public class UnitTest1
     [Fact]
     public async Task HoldingFireShootsOncePerPress()
     {
-        var game = new Game(new TestHubContext());
+        var clock = new FakeClock();
+        var game = new Game(new TestHubContext()) { Clock = clock.Now };
         var id = game.JoinGame();
 
         game.ReceiveUserInput(Input(id, shoot: true, aimX: 300, aimY: 300));
@@ -347,8 +348,8 @@ public class UnitTest1
 
         // Release, wait out the reload, and press again: a second bullet
         game.ReceiveUserInput(Input(id, shoot: false));
-        for (var tick = 0; tick < game.Settings.ReloadTicks; tick++)
-            await game.loopRunner.ProcessGameTick();
+        clock.Advance(game.Settings.ReloadMs);
+        await game.loopRunner.ProcessGameTick();
         game.ReceiveUserInput(Input(id, shoot: true));
         Assert.Contains(game.Bullets, bullet => bullet.Id != firstBullet);
     }

@@ -12,31 +12,65 @@ public class RateOfFireTests
     }
 
     [Fact]
-    public async Task PressDuringReloadIsIgnored()
+    public void PressDuringReloadIsIgnored()
     {
-        var game = TestGames.NewGame(new MatchSettings { ReloadTicks = 3 });
+        var clock = new FakeClock();
+        var game = TestGames.NewGame(new MatchSettings { ReloadMs = 300 }, clock);
         var a = game.JoinGame();
 
         Press(game, a);
         Press(game, a);
-        await game.loopRunner.ProcessGameTick();
-        await game.loopRunner.ProcessGameTick();
+        clock.Advance(200);
         Press(game, a);
 
         Assert.Single(game.Bullets, bullet => bullet.OwnerId == a);
     }
 
     [Fact]
-    public async Task PressAfterReloadFires()
+    public void PressAfterReloadFires()
     {
-        var game = TestGames.NewGame(new MatchSettings { ReloadTicks = 3 });
+        var clock = new FakeClock();
+        var game = TestGames.NewGame(new MatchSettings { ReloadMs = 300 }, clock);
         var a = game.JoinGame();
 
         Press(game, a);
-        for (var tick = 0; tick < 3; tick++)
-            await game.loopRunner.ProcessGameTick();
+        clock.Advance(300);
         Press(game, a);
 
         Assert.Equal(2, game.Bullets.Count(bullet => bullet.OwnerId == a));
+    }
+
+    [Fact]
+    public void ReloadIsPreciseToTheMillisecond()
+    {
+        var clock = new FakeClock();
+        var game = TestGames.NewGame(new MatchSettings { ReloadMs = 250 }, clock);
+        var a = game.JoinGame();
+
+        Press(game, a);
+        clock.Advance(249);
+        Press(game, a);
+        Assert.Single(game.Bullets);
+
+        clock.Advance(1);
+        Press(game, a);
+        Assert.Equal(2, game.Bullets.Count());
+    }
+
+    [Fact]
+    public void ReloadAppliesToInstantShotsToo()
+    {
+        var clock = new FakeClock();
+        var game = TestGames.NewGame(new MatchSettings { Projectile = ProjectileType.Realistic, ReloadMs = 500 }, clock);
+        var a = game.JoinGame();
+        game.JoinGame();
+
+        Press(game, a);
+        Press(game, a);
+        Assert.Single(game.Explosions);
+
+        clock.Advance(500);
+        Press(game, a);
+        Assert.Equal(2, game.Explosions.Count());
     }
 }

@@ -39,14 +39,27 @@ internal sealed class FakeHubContext : IHubContext<LobbyHub>
     }
 }
 
+// Reload is measured in real milliseconds; tests move time by hand instead of sleeping
+internal sealed class FakeClock
+{
+    private long now = 1_000_000;
+    public long Now() => now;
+    public void Advance(int ms) => now += ms;
+}
+
 internal static class TestGames
 {
     // Open map: spawns 1 and 2 face each other on the same row, spawn 3 is far away in a corner
     public static readonly GameMap Arena = new("Arena", 800, 400, [],
         [new MapSpawnPoint(100, 200, 0), new MapSpawnPoint(400, 200, 180), new MapSpawnPoint(700, 60, 180)]);
 
-    public static Game NewGame(MatchSettings? settings = null) =>
-        new(new FakeHubContext()) { Map = Arena, Settings = settings ?? new MatchSettings() };
+    public static Game NewGame(MatchSettings? settings = null, FakeClock? clock = null) =>
+        new(new FakeHubContext())
+        {
+            Map = Arena,
+            Settings = settings ?? new MatchSettings(),
+            Clock = (clock ?? new FakeClock()).Now,
+        };
 
     public static PlayerInputRequest Input(Guid playerId, bool shoot = false, int? aimX = null, int? aimY = null) => new()
     {

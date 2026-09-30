@@ -117,7 +117,7 @@ public class ProjectileTests
     [Fact]
     public void ReloadStillAppliesToRealisticShots()
     {
-        var (game, a, b) = Duel(new MatchSettings { Projectile = ProjectileType.Realistic, ReloadTicks = 10 });
+        var (game, a, b) = Duel(new MatchSettings { Projectile = ProjectileType.Realistic, ReloadMs = 1000 });
         TestGames.ShootAt(game, a, b);
         TestGames.ShootAt(game, a, b);
 
@@ -135,5 +135,21 @@ public class ProjectileTests
         Assert.Equal(1, game.GetGameState().Explosions!.Single().Age);
 
         await TestGames.TickUntil(game, () => !game.Explosions.Any(), Explosion.Ticks + 2);
+    }
+
+    [Fact]
+    public void ExplosionRemembersTheMuzzleForTheTracerLine()
+    {
+        var (game, a, b) = Duel(new MatchSettings { Projectile = ProjectileType.Realistic });
+        var shooter = game.Tanks.Single(t => t.Id == a);
+        var (centerX, centerY) = Tank.GetCenter(shooter, game.DeveloperSettings);
+
+        TestGames.ShootAt(game, a, b);
+
+        var blast = game.GetGameState().Explosions!.Single();
+        // The barrel is Tank.BarrelLength long, pointing at the target (to the right along the row)
+        Assert.InRange(blast.FromX, centerX + Tank.BarrelLength - 3, centerX + Tank.BarrelLength + 3);
+        Assert.InRange(blast.FromY, centerY - 3, centerY + 3);
+        Assert.True(blast.X > blast.FromX);
     }
 }

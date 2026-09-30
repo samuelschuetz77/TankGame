@@ -3,6 +3,17 @@
 @* Kenney "Smoke particle assets" (CC0): 9 fireball frames, see images/Explosion/LICENSE.txt *@
 @foreach (var explosion in Explosions)
 {
+    @* Tracer: a quick red line from the muzzle to the impact, gone after a few ticks *@
+    if (explosion.Age < TracerTicks)
+    {
+        var dx = explosion.X - explosion.FromX;
+        var dy = explosion.Y - explosion.FromY;
+        var length = Math.Sqrt(dx * dx + dy * dy).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        var degrees = (Math.Atan2(dy, dx) * 180 / Math.PI).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        var tracerOpacity = (1 - explosion.Age / (double)TracerTicks).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        <div @key="@($"{explosion.Id}-tracer")" class="shot-tracer"
+             style=@($"position: absolute; left: {explosion.FromX}px; top: {explosion.FromY - 1}px; width: {length}px; height: 3px; background: linear-gradient(90deg, rgba(255,60,60,0.2), #ff2a2a); box-shadow: 0 0 6px #ff2a2a; transform-origin: 0 50%; transform: rotate({degrees}deg); opacity: {tracerOpacity}; pointer-events: none; z-index: 4;")></div>
+    }
     var frame = Math.Min(FrameCount - 1, explosion.Age * FrameCount / Explosion.Ticks);
     var progress = explosion.Age / (double)Explosion.Ticks;
     var scale = (0.7 + 0.5 * progress).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
@@ -16,6 +27,8 @@
     public IEnumerable<ExplosionState> Explosions { get; set; } = [];
 
     private const int FrameCount = 9;
+    // Ticks the tracer line stays visible (0.3 s)
+    private const int TracerTicks = 3;
     // Twice the size of a dumb bubble (10 px), so it marks the hit without hiding the tank
     private const int Size = Bullet.BulletSize * 2 + 4;
 }

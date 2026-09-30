@@ -11,10 +11,10 @@ public class InMatchSettingsTests
         var creator = game.JoinGame();
         game.JoinGame();
 
-        game.UpdateMatchSettings(creator, game.Settings with { SpeedMultiplier = 2, ReloadTicks = 5, MaxBounces = 3 });
+        game.UpdateMatchSettings(creator, game.Settings with { SpeedMultiplier = 2, ReloadMs = 250, MaxBounces = 3 });
 
         Assert.Equal(2, game.Settings.SpeedMultiplier);
-        Assert.Equal(5, game.Settings.ReloadTicks);
+        Assert.Equal(250, game.Settings.ReloadMs);
         Assert.Equal(3, game.Settings.MaxBounces);
     }
 
@@ -50,10 +50,10 @@ public class InMatchSettingsTests
         var game = TestGames.NewGame();
         var creator = game.JoinGame();
 
-        game.UpdateMatchSettings(creator, game.Settings with { SpeedMultiplier = 7, ReloadTicks = -4 });
+        game.UpdateMatchSettings(creator, game.Settings with { SpeedMultiplier = 7, ReloadMs = -4 });
 
         Assert.Equal(2, game.Settings.SpeedMultiplier);
-        Assert.Equal(MatchSettings.MinReloadTicks, game.Settings.ReloadTicks);
+        Assert.Equal(MatchSettings.MinReloadMs, game.Settings.ReloadMs);
     }
 
     [Fact]
