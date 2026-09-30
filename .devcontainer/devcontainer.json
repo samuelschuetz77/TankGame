@@ -1,0 +1,6 @@
+{
+  "name": "TankGame",
+  "dockerComposeFile": "compose.yml",
+  "service": "backend",
+  "workspaceFolder": "/src"
+}
