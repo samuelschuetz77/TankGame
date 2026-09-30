@@ -1,8 +1,14 @@
 @using GameLogic
+@using GameLogic.Game
 
 @code {
     [Parameter]
     public TankState tank { get; set; }
+    // Match rules, so the health bar and lives counter know their maximums
+    [Parameter]
+    public int MaxHealth { get; set; } = MatchSettings.DefaultHealth;
+    [Parameter]
+    public int MaxLives { get; set; } = MatchSettings.DefaultLives;
     [Parameter]
     public int VisualTopOffset { get; set; } = new DeveloperGameSettings().VisualTopOffset;
 
@@ -39,11 +45,21 @@
 }
 
 
-@if (tank != null)
+@if (tank != null && tank.Respawning)
+{
+    <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
+        Respawning in @(((tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond))s
+    </div>
+}
+else if (tank != null && !tank.Eliminated)
 {
     <div class="tank-sprite" style=@($"{transitionConst}; position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; pointer-events: none;")>
-        <div title="@tank.Id" style="position: absolute; bottom: 100%; left: 0; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; line-height: 14px;">
-            @tank.Id.ToString()[^5..]
+        @* Health bar on top of the tank; the id and lives sit underneath so neither hides the other *@
+        <div style="position: absolute; bottom: 100%; left: 0; width: 100%; height: 5px; background: #400; pointer-events: none;">
+            <div style=@($"height: 100%; width: {Math.Clamp(tank.Health, 0, MaxHealth) * 100 / Math.Max(1, MaxHealth)}%; background: #3c3;")></div>
+        </div>
+        <div title="@tank.Id" style="position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 10px; line-height: 14px;">
+            @tank.Id.ToString()[^5..] · HP @tank.Health/@MaxHealth · @Math.Max(0, MaxLives - tank.Deaths) @(MaxLives - tank.Deaths == 1 ? "life" : "lives")
         </div>
         @* Origin at the box center, scaled so the sprite fills the collision box *@
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>

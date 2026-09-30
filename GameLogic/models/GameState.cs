@@ -8,9 +8,15 @@ public record GameState
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; init; } = new();
+    public MatchSettings Settings { get; init; } = new();
+    public Guid? CreatorId { get; init; }
+    public Guid? WinnerId { get; init; }
+    // Null when there's no time limit or it hasn't started
+    public int? SecondsLeft { get; init; }
     public GameMap? Map { get; init; }
     public IEnumerable<TankState>? Tanks { get; init; }
     public IEnumerable<BulletState>? Bullets { get; init; }
+    public IEnumerable<ExplosionState>? Explosions { get; init; }
 }
 
 public static class GameMatchTypes
@@ -40,6 +46,13 @@ public record TankState
     public int PositionY { get; init; }
     public int Angle { get; init; }
     public int TurretAngle { get; init; }
+    public int Health { get; init; }
+    public bool Eliminated { get; init; }
+    public int Deaths { get; init; }
+    public int RespawnTicksLeft { get; init; }
+    public int HitsLanded { get; init; }
+    // Destroyed with lives left, waiting to come back
+    public bool Respawning => Health <= 0 && !Eliminated;
 }
 
 public record BulletState

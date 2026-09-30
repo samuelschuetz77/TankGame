@@ -16,7 +16,8 @@ public class LobbyHub : Hub
     await Clients.All.SendAsync("ReceiveMessage", user, message);
   }
 
-  public async Task CreateGame(string name, string? mapName = null, string? matchType = null)
+  // SignalR doesn't fill optional parameters, so clients must send all four arguments
+  public async Task CreateGame(string name, string? mapName = null, string? matchType = null, MatchSettings? settings = null)
   {
     var nameTaken = lobby.Games.FirstOrDefault(g => g.Name == name) != null;
     if(nameTaken)
@@ -24,7 +25,7 @@ public class LobbyHub : Hub
       throw new Exception($"cannot create game, name already taken: {name}");
     }
 
-    var game = lobby.CreateGame(name, mapName, matchType);
+    var game = lobby.CreateGame(name, mapName, matchType, settings);
     Console.WriteLine($"created game: {name}");
 
     var playerId = game.JoinGame();
@@ -62,18 +63,27 @@ public class LobbyHub : Hub
 
   }
 
-  public void PlayerInput(PlayerInputRequest request)
+  public async Task PlayerInput(PlayerInputRequest request)
   {
     Console.WriteLine("got player input");
     Console.WriteLine(request);
     var game = lobby.Games.First(g => g.Name == request.GameName);
-    game.ReceiveUserInput(request);
+    // An instant shot shouldn't wait for the next 100 ms tick to show its explosion
+    if (game.ReceiveUserInput(request))
+      await game.BroadcastUpdate();
   }
 
   public async Task UpdateDeveloperSettings(string gameName, DeveloperGameSettings settings)
   {
     var game = lobby.Games.First(g => g.Name == gameName);
     game.UpdateDeveloperSettings(settings);
+    await game.BroadcastUpdate();
+  }
+
+  public async Task UpdateMatchSettings(string gameName, Guid playerId, MatchSettings settings)
+  {
+    var game = lobby.Games.First(g => g.Name == gameName);
+    game.UpdateMatchSettings(playerId, settings);
     await game.BroadcastUpdate();
   }
 

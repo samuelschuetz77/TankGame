@@ -6,8 +6,8 @@ public class GameLoopRunner
     private object loopLock { get; } = new object();
     private bool loopIsRunning { get; set; } = false;
     public static double TickIntervalScalar = 10;
-
-    private int tickcounter = 0;
+    // Matches the default 100 ms tick interval
+    public const int TicksPerSecond = 10;
 
     private ReplaySaver? saver;
     public GameLoopRunner(Game game)
@@ -35,7 +35,6 @@ public class GameLoopRunner
             while (!game.CancellationTokenSource.Token.IsCancellationRequested)
             {
                 await ProcessGameTick();
-                tickcounter++;
                 var interval = (int)(10 * TickIntervalScalar);
                 // Console.WriteLine($"sleeping {interval}");
 
@@ -47,7 +46,7 @@ public class GameLoopRunner
     }
     public async Task ProcessGameTick()
     {
-        Console.WriteLine($"processing game tick {tickcounter}");
+        Console.WriteLine($"processing game tick {game.Tick}");
 
         //var copy = game.Tanks.ToArray();
         //foreach (var tank in copy) {
@@ -60,15 +59,33 @@ public class GameLoopRunner
         // Input and simulation both replace state; keep either update from overwriting the other.
         lock (game.StateLock)
         {
-        game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, game.DeveloperSettings)).ToArray();
-        game.Bullets = game.Bullets
-            .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
-            .Where(bullet => bullet is not null)
-            .Cast<Bullet>()
+        game.Explosions = game.Explosions
+            .Select(explosion => explosion with { TicksLeft = explosion.TicksLeft - 1 })
+            .Where(explosion => explosion.TicksLeft > 0)
             .ToArray();
+        // An ended match is frozen; updates keep going out so everyone sees the result
+        if (game.Status != GameStatus.Ended)
+        {
+            game.Tick++;
+            var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
+            game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement)).ToArray();
+            game.Bullets = game.Bullets
+                .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
+                .Where(bullet => bullet is not null)
+                .Cast<Bullet>()
+                .ToArray();
+            // No damage until the 2nd player joins: a creator practising alone can't eliminate themselves
+            if (game.StartedAtTick is not null)
+            {
+                var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings, game.Settings);
+                game.Tanks = Combat.TickRespawns(tanks, game.Map, game.Settings, Random.Shared);
+                game.Bullets = bullets;
+                game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
+            }
+        }
         }
 
-        saver?.SaveTick(game.Tanks, tickcounter, game.Name ?? string.Empty);
+        saver?.SaveTick(game.Tanks, game.Tick, game.Name ?? string.Empty);
 
         await game.BroadcastUpdate();
     }

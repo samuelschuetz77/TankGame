@@ -12,7 +12,19 @@
       <div class="d-flex align-items-center gap-2 mb-2">
         <strong>Map: @(game.Map?.Name ?? "Unknown")</strong>
         <span>@game.MatchType</span>
+        @if (game.SecondsLeft is int secondsLeft)
+        {
+          <span>Time left: @(secondsLeft / 60):@((secondsLeft % 60).ToString("00"))</span>
+        }
       </div>
+      @if (game.Status == GameStatus.Ended)
+      {
+        <div class="alert alert-info py-2 mb-2">
+          @(game.WinnerId is null ? "Draw!"
+            : game.WinnerId == PlayerId ? "You win!"
+            : $"{game.WinnerId.Value.ToString()[^5..]} wins")
+        </div>
+      }
       <PlayerControls GameName=@GameName PlayerId=PlayerId BoardWidth="@(game.Map?.Width ?? 750)" BoardHeight="@(game.Map?.Height ?? 750)">
         @if (game.Map?.Obstacles != null)
         {
@@ -23,7 +35,7 @@
         }
         @foreach (var tank in game.Tanks ?? [])
         {
-          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" />
+          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" MaxHealth="@game.Settings.Health" MaxLives="@game.Settings.Lives" />
           @if (showHitbox && game.MatchType == GameMatchTypes.DeveloperSimulation)
           {
             var area = Tank.GetCollisionArea(new Tank { PositionX = tank.PositionX, PositionY = tank.PositionY }, game.DeveloperSettings);
@@ -31,6 +43,7 @@
           }
         }
         <BulletsComponent Bullets="@(game.Bullets ?? [])" />
+        <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
       </PlayerControls>
     </div>
 
@@ -39,6 +52,24 @@
       <aside style="width: 280px; padding: 12px; border: 1px solid #cbd5e1; background: #f8fafc;">
         <h3 style="font-size: 1rem; margin-bottom: 12px;">Developer settings</h3>
         <button type="button" class="btn btn-outline-secondary mb-3" @onclick="ResetDeveloperSettings">Reset to defaults</button>
+        <button type="button" class="btn btn-outline-secondary mb-3" @onclick="AddTargetTank">Add target tank</button>
+        <table class="table table-sm small mb-3">
+          <thead><tr><th>Tank</th><th>HP</th><th>Lives</th><th>Hits</th></tr></thead>
+          <tbody>
+            @foreach (var tank in game.Tanks ?? [])
+            {
+              <tr>
+                <td>@tank.Id.ToString()[^5..]@(tank.Id == PlayerId ? " (you)" : "")</td>
+                <td>@tank.Health/@game.Settings.Health</td>
+                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : (game.Settings.Lives - tank.Deaths).ToString())</td>
+                <td>@tank.HitsLanded</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="small text-muted">
+          @game.Settings.Projectile.Label() · bullets @(game.Bullets?.Count() ?? 0) · explosions @(game.Explosions?.Count() ?? 0)
+        </p>
         <label class="form-check mb-2">
           <input class="form-check-input" type="checkbox" @bind="showHitbox"> Show hitbox
         </label>
@@ -86,6 +117,12 @@
           <input class="form-range" type="range" min="0.10" max="1.50" step="0.05" value="@backwardSpeedMultiplier" @oninput="SetBackwardSpeedMultiplier">
         </label>
       </aside>
+    }
+
+    @if (game.CreatorId == PlayerId)
+    {
+      <MatchSettingsPanel Settings="game.Settings" Changed="SendMatchSettings"
+                          AllowLockedEdits="@(game.MatchType == GameMatchTypes.DeveloperSimulation)" />
     }
   </div>
 }
@@ -213,6 +250,18 @@
     showHitbox = false;
     LoadDeveloperSettings(new DeveloperGameSettings());
     await SendDeveloperSettings();
+  }
+
+  // The server checks that this player is the creator and echoes the result in the next update
+  private async Task SendMatchSettings(MatchSettings settings)
+  {
+    await signalR.HubConnection?.SendAsync(Messages.UpdateMatchSettings, GameName, PlayerId, settings)!;
+  }
+
+  // Dev simulation only: another tank to shoot at (it just sits at its spawn point)
+  private async Task AddTargetTank()
+  {
+    await signalR.HubConnection?.SendAsync(Messages.JoinGame, GameName)!;
   }
 
   private async Task SetSlideAlongWalls(ChangeEventArgs e)

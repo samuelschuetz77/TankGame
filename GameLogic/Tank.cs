@@ -19,6 +19,20 @@ public record Tank
     public int? AimX { get; init; }
     public int? AimY { get; init; }
     public int TurretAngle { get; init; } = -45;
+    // Hits left before elimination
+    public int Health { get; init; } = MatchSettings.DefaultHealth;
+    // Out for good: used up every life
+    public bool Eliminated { get; init; }
+    // Times this tank has been destroyed
+    public int Deaths { get; init; }
+    // Ticks until a destroyed tank comes back
+    public int RespawnTicksLeft { get; init; }
+    // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
+    public bool Respawning => Health <= 0 && !Eliminated;
+    // Hits on other tanks; breaks health ties when time runs out
+    public int HitsLanded { get; init; }
+    // Game clock time (ms) at which the tank may fire again; 0 = ready
+    public long NextShotAtMs { get; init; }
     //public Bullet Bullet { get; set; } = new();
 
     // Distance from the turret pivot to the muzzle, matching the drawn barrel
@@ -36,6 +50,9 @@ public record Tank
 
     public static Tank ProcessTankMovement(Tank tank, GameMap map, DeveloperGameSettings settings)
     {
+        if (tank.Eliminated || tank.Respawning)
+            return tank;
+
         var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
         var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);
@@ -63,7 +80,7 @@ public record Tank
     }
 
     // Bullet leaving the muzzle along the turret's direction
-    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings)
+    public static Bullet FireBullet(Tank tank, DeveloperGameSettings settings, int bounces = 0, int speed = Bullet.DefaultSpeed)
     {
         var (centerX, centerY) = GetCenter(tank, settings);
         double radians = Math.PI * tank.TurretAngle / 180.0;
@@ -74,7 +91,10 @@ public record Tank
             // Bullet position is its top-left corner; center it on the muzzle
             PositionX = muzzleX - Bullet.BulletSize / 2,
             PositionY = muzzleY - Bullet.BulletSize / 2,
-            Angle = tank.TurretAngle
+            Angle = tank.TurretAngle,
+            OwnerId = tank.Id,
+            BouncesLeft = bounces,
+            Speed = speed
         };
     }
 

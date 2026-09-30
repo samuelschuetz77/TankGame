@@ -1,0 +1,53 @@
+@using GameLogic
+
+@* Kenney "Smoke particle assets" (CC0): 9 fireball frames, see images/Explosion/LICENSE.txt *@
+<style>
+    /* Animations run on the client from the moment an explosion appears, so they don't step with the 100 ms game tick */
+    @@keyframes boom-life { from { transform: scale(0.7); opacity: 1; } to { transform: scale(1.2); opacity: 0.3; } }
+    @@keyframes boom-frame { from { opacity: 1; } to { opacity: 1; } }
+    @@keyframes tracer-fade { from { opacity: 1; } to { opacity: 0; } }
+</style>
+
+@* Frames are fetched up front so the first explosion isn't waiting on the network *@
+<div style="position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden;">
+    @for (var frame = 0; frame < FrameCount; frame++)
+    {
+        <img src=@($"images/Explosion/explosion{frame:00}.png") alt="" />
+    }
+</div>
+
+@foreach (var explosion in Explosions)
+{
+    @* Tracer: a quick red line from the muzzle to the impact *@
+    if (explosion.Age < TracerTicks)
+    {
+        var dx = explosion.X - explosion.FromX;
+        var dy = explosion.Y - explosion.FromY;
+        var length = Math.Sqrt(dx * dx + dy * dy).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        var degrees = (Math.Atan2(dy, dx) * 180 / Math.PI).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        <div @key="@($"{explosion.Id}-tracer")" class="shot-tracer"
+             style=@($"position: absolute; left: {explosion.FromX}px; top: {explosion.FromY - 1}px; width: {length}px; height: 3px; background: linear-gradient(90deg, rgba(255,60,60,0.2), #ff2a2a); box-shadow: 0 0 6px #ff2a2a; transform-origin: 0 50%; transform: rotate({degrees}deg); animation: tracer-fade {TracerMs}ms linear forwards; pointer-events: none; z-index: 4;")></div>
+    }
+    @* The fireball starts on its first frame the instant it appears; nothing here depends on the tick *@
+    <div @key="explosion.Id"
+         style=@($"position: absolute; left: {explosion.X - Size / 2}px; top: {explosion.Y - Size / 2}px; width: {Size}px; height: {Size}px; animation: boom-life {LifeMs}ms ease-out forwards; pointer-events: none; user-select: none; z-index: 5;")>
+        @for (var frame = 0; frame < FrameCount; frame++)
+        {
+            <img src=@($"images/Explosion/explosion{frame:00}.png") alt="" draggable="false"
+                 style=@($"position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; animation: boom-frame {LifeMs / FrameCount}ms linear {frame * LifeMs / FrameCount}ms 1;") />
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IEnumerable<ExplosionState> Explosions { get; set; } = [];
+
+    private const int FrameCount = 9;
+    // Twice the size of a dumb bubble (10 px), so it marks the hit without hiding the tank
+    private const int Size = Bullet.BulletSize * 2 + 4;
+    private const int LifeMs = Explosion.Ticks * 100;
+    // The tracer is only there for the first 3 ticks (0.3 s), fading as it goes
+    private const int TracerTicks = 3;
+    private const int TracerMs = TracerTicks * 100;
+}
