@@ -1,0 +1,247 @@
+{
+  "wall": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 240,
+      "height": 45,
+      "shape": "Rect"
+    }
+  ],
+  "pillar": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 90,
+      "height": 90,
+      "shape": "Rect"
+    }
+  ],
+  "cross": [
+    {
+      "x": 85,
+      "y": 0,
+      "width": 50,
+      "height": 220,
+      "shape": "Rect"
+    },
+    {
+      "x": 0,
+      "y": 85,
+      "width": 220,
+      "height": 50,
+      "shape": "Rect"
+    }
+  ],
+  "L": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 50,
+      "height": 220,
+      "shape": "Rect"
+    },
+    {
+      "x": 0,
+      "y": 170,
+      "width": 200,
+      "height": 50,
+      "shape": "Rect"
+    }
+  ],
+  "U": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 45,
+      "height": 230,
+      "shape": "Rect"
+    },
+    {
+      "x": 235,
+      "y": 0,
+      "width": 45,
+      "height": 230,
+      "shape": "Rect"
+    },
+    {
+      "x": 0,
+      "y": 185,
+      "width": 280,
+      "height": 45,
+      "shape": "Rect"
+    }
+  ],
+  "T": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 240,
+      "height": 50,
+      "shape": "Rect"
+    },
+    {
+      "x": 95,
+      "y": 0,
+      "width": 50,
+      "height": 220,
+      "shape": "Rect"
+    }
+  ],
+  "building": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 180,
+      "height": 140,
+      "shape": "Rect"
+    }
+  ],
+  "circle": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 150,
+      "height": 150,
+      "shape": "Ellipse"
+    }
+  ],
+  "oval": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 220,
+      "height": 110,
+      "shape": "Ellipse"
+    }
+  ],
+  "arc": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 260,
+      "height": 260,
+      "shape": "Arc",
+      "startAngle": 0,
+      "sweepAngle": 220,
+      "innerRatio": 0.6
+    }
+  ],
+  "wedge": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 210,
+      "height": 180,
+      "shape": "Triangle"
+    }
+  ],
+  "standard-0-0": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 80,
+      "height": 460,
+      "shape": "Rect"
+    }
+  ],
+  "standard-0-1": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 520,
+      "height": 70,
+      "shape": "Rect"
+    }
+  ],
+  "standard-1-0": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 140,
+      "height": 210,
+      "shape": "Rect"
+    }
+  ],
+  "standard-1-1": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 140,
+      "height": 210,
+      "shape": "Rect"
+    }
+  ],
+  "standard-1-2": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 120,
+      "shape": "Rect"
+    }
+  ],
+  "standard-2-0": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 560,
+      "height": 60,
+      "shape": "Rect"
+    }
+  ],
+  "standard-2-1": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 560,
+      "height": 60,
+      "shape": "Rect"
+    }
+  ],
+  "standard-2-2": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 560,
+      "height": 60,
+      "shape": "Rect"
+    }
+  ],
+  "standard-3-0": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 220,
+      "shape": "Rect"
+    }
+  ],
+  "standard-3-1": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 220,
+      "shape": "Rect"
+    }
+  ],
+  "standard-3-2": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 160,
+      "height": 90,
+      "shape": "Rect"
+    }
+  ],
+  "standard-3-3": [
+    {
+      "x": 0,
+      "y": 0,
+      "width": 160,
+      "height": 90,
+      "shape": "Rect"
+    }
+  ]
+}

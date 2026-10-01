@@ -1,0 +1,26 @@
+{
+  "Default": {
+    "width": 1800,
+    "height": 1400,
+    "viewWidth": 900,
+    "viewHeight": 700
+  },
+  "Wide": {
+    "width": 2400,
+    "height": 1400,
+    "viewWidth": 1000,
+    "viewHeight": 700
+  },
+  "Larger": {
+    "width": 2250,
+    "height": 1750,
+    "viewWidth": 900,
+    "viewHeight": 700
+  },
+  "Closer": {
+    "width": 1800,
+    "height": 1400,
+    "viewWidth": 1080,
+    "viewHeight": 840
+  }
+}

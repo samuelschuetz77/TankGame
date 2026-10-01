@@ -1,3 +1,4 @@
+using System.Diagnostics;
 namespace GameLogic.Game;
 
 public class GameLoopRunner
@@ -9,6 +10,7 @@ public class GameLoopRunner
     // Matches the default 100 ms tick interval
     public const int TicksPerSecond = 10;
 
+    private long lastTickAt;
     private ReplaySaver? saver;
     public GameLoopRunner(Game game)
     {
@@ -18,44 +20,28 @@ public class GameLoopRunner
 
     public void RunGameLoop()
     {
-        Task.Run(async () =>
+        lock (loopLock)
         {
-            game.CancellationTokenSource.Token.ThrowIfCancellationRequested();
-            lock (loopLock)
+            if (loopIsRunning) return;
+            loopIsRunning = true;
+        }
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                if (loopIsRunning)
-                {
-                    Console.WriteLine("Another thread is already running the loop.");
-                    return;
-                }
-
-                loopIsRunning = true;
+                using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10 * TickIntervalScalar));
+                do { await ProcessGameTick(); }
+                while (await timer.WaitForNextTickAsync(game.CancellationTokenSource.Token));
             }
-
-            while (!game.CancellationTokenSource.Token.IsCancellationRequested)
-            {
-                await ProcessGameTick();
-                var interval = (int)(10 * TickIntervalScalar);
-                // Console.WriteLine($"sleeping {interval}");
-
-                Thread.Sleep(interval);
-            }
-            loopIsRunning = false;
-
+            catch (OperationCanceledException) when (game.CancellationTokenSource.IsCancellationRequested) { }
+            finally { lock (loopLock) loopIsRunning = false; }
         });
     }
     public async Task ProcessGameTick()
     {
-        Console.WriteLine($"processing game tick {game.Tick}");
-
-        //var copy = game.Tanks.ToArray();
-        //foreach (var tank in copy) {
-        //    Console.WriteLine(tank);
-        //}
-        //foreach (var tank in game.Tanks) {
-        //    Console.WriteLine(tank);
-        //}
-        //Console.WriteLine();
+        var tickAt = Stopwatch.GetTimestamp();
+        if (lastTickAt != 0) game.ServerIntervalMs = Stopwatch.GetElapsedTime(lastTickAt, tickAt).TotalMilliseconds;
+        lastTickAt = tickAt;
         // Input and simulation both replace state; keep either update from overwriting the other.
         lock (game.StateLock)
         {
@@ -78,15 +64,19 @@ public class GameLoopRunner
             if (game.StartedAtTick is not null)
             {
                 var (tanks, bullets) = Combat.ResolveHits(game.Tanks, game.Bullets, game.DeveloperSettings, game.Settings);
-                game.Tanks = Combat.TickRespawns(tanks, game.Map, game.Settings, Random.Shared);
+                game.Tanks = tanks;
                 game.Bullets = bullets;
-                game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
             }
+            game.Tanks = Combat.TickRespawns(game.Tanks, game.Map, game.Settings, Random.Shared, game.DeveloperSettings);
+            game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
         }
         }
 
         saver?.SaveTick(game.Tanks, game.Tick, game.Name ?? string.Empty);
 
+        game.ServerWorkMs = Stopwatch.GetElapsedTime(tickAt).TotalMilliseconds;
+        var broadcastAt = Stopwatch.GetTimestamp();
         await game.BroadcastUpdate();
+        game.ServerBroadcastMs = Stopwatch.GetElapsedTime(broadcastAt).TotalMilliseconds;
     }
 }

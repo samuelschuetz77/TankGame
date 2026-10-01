@@ -47,6 +47,11 @@ internal sealed class FakeClock
     public void Advance(int ms) => now += ms;
 }
 
+internal sealed class FirstSpawnRandom : Random
+{
+    public override int Next(int maxValue) => 0;
+}
+
 internal static class TestGames
 {
     // Open map: spawns 1 and 2 face each other on the same row, spawn 3 is far away in a corner
@@ -57,6 +62,7 @@ internal static class TestGames
         new(new FakeHubContext())
         {
             Map = Arena,
+            SpawnRandom = new FirstSpawnRandom(),
             Settings = settings ?? new MatchSettings(),
             Clock = (clock ?? new FakeClock()).Now,
         };
