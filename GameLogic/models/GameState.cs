@@ -75,4 +75,6 @@ public record BulletState
     public int PositionX { get; init; }
     public int PositionY { get; init; }
     public int Angle { get; init; }
+    // Tank that fired it, so the client can color the shot like its shooter
+    public Guid OwnerId { get; init; }
 }

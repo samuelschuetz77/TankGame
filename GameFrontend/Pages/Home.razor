@@ -173,7 +173,7 @@
               <span class="field-label">Projectile</span>
               <div class="choice-cards two">
                 <button type="button" class="choice-card @(projectile == ProjectileType.DumbBubbles ? "is-selected" : "")" @onclick="() => projectile = ProjectileType.DumbBubbles">
-                  <span class="choice-icon">🫧</span>
+                  <span class="choice-icon"><img class="bullet-icon" src="images/PNG/Bullets/bulletYellowSilver_outline.png" alt="" /></span>
                   <span class="choice-name">@ProjectileType.DumbBubbles.Label()</span>
                   <span class="choice-desc">Slow shots you can see coming. They can bounce off walls.</span>
                 </button>
@@ -391,7 +391,17 @@
             <ul class="chips">
               <li>❤ @settings.Health HP</li>
               <li>↻ @settings.Lives li@(settings.Lives == 1 ? "fe" : "ves") · @settings.RespawnSeconds s</li>
-              <li>@(settings.Projectile == ProjectileType.DumbBubbles ? "🫧" : "💥") @settings.Projectile.Label()</li>
+              <li>
+                @if (settings.Projectile == ProjectileType.DumbBubbles)
+                {
+                  <img class="bullet-icon chip-bullet" src="images/PNG/Bullets/bulletYellowSilver_outline.png" alt="" />
+                }
+                else
+                {
+                  <text>💥</text>
+                }
+                @settings.Projectile.Label()
+              </li>
               @if (settings.Projectile == ProjectileType.DumbBubbles)
               {
                 <li>➶ speed @settings.BulletSpeed · @settings.MaxBounces bounce@(settings.MaxBounces == 1 ? "" : "s")</li>

@@ -23,7 +23,6 @@
     private const double barrelWidth = 16;
     private const double hullImageWidth = 75;
     private const double spriteScale = Tank.Size / hullImageWidth;
-    private static readonly string[] colors = ["Beige", "Black", "Blue", "Green", "Red"];
 
     private string color = "Green";
     private double? hullRotation;
@@ -31,7 +30,7 @@
 
     protected override void OnParametersSet()
     {
-        color = colors[tank.Id.ToByteArray()[0] % colors.Length];
+        color = TankPalette.TankColor(tank.Id);
         hullRotation = ShortestRotation(hullRotation, tank.Angle + spriteFacingOffset);
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
     }

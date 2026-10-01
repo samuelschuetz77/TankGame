@@ -87,7 +87,8 @@ public class Game
                 Id = b.Id,
                 PositionX = b.PositionX,
                 PositionY = b.PositionY,
-                Angle = b.Angle
+                Angle = b.Angle,
+                OwnerId = b.OwnerId
             }).ToArray()
         };
     }
