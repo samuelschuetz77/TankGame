@@ -1,0 +1,2 @@
+# Keep Razor line endings consistent across Windows and other development environments.
+*.razor text eol=lf

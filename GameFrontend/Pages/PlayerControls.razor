@@ -6,13 +6,10 @@
 @implements IHandleEvent
 @inject Microsoft.JSInterop.IJSRuntime JS
 
-<div>
-    Drive with WASD or the arrow keys, aim with the mouse, and click to fire
-</div>
 <div tabindex="0" @ref="board"
-class="m-1 game-board"
-style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden; outline: 3px solid #343a40; background: #d8d2b5;")
-@onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
+class="game-board"
+style="position: absolute; inset: 0; overflow: hidden; outline: none; background: #171e14;"
+@onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
 @onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
 >
     <div style="@WorldStyle">
@@ -28,10 +25,7 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     .game-board img {
         -webkit-user-drag: none;
     }
-    .game-board:focus {
-    border-color: blue !important;
-    background-color: rgb(240, 240, 240);
-    }
+
 </style>
 
 @code {
@@ -41,10 +35,10 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     public string GameName { get; set; }
     [Parameter]
     public Guid PlayerId { get; set; }
-    [Parameter]
-    public int BoardWidth { get; set; } = 750;
-    [Parameter]
-    public int BoardHeight { get; set; } = 750;
+    [Parameter] public EventCallback<(double Width, double Height)> ViewportChanged { get; set; }
+    private DotNetObjectReference<PlayerControls>? viewportReference;
+    [JSInvokable]
+    public Task ResizeViewport(double width, double height) => ViewportChanged.InvokeAsync((width, height));
     [Parameter] public MapCamera Camera { get; set; } = new(1, 0, 0);
     private string WorldStyle => FormattableString.Invariant($"position:absolute;left:0;top:0;transform-origin:0 0;transform:scale({Camera.Scale}) translate({-Camera.X}px,{-Camera.Y}px);pointer-events:none;transition:transform 100ms linear;will-change:transform;");
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem callback, object? arg) => callback.InvokeAsync(arg);
@@ -76,6 +70,8 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         {
             await board.FocusAsync();
             await JS.InvokeVoidAsync("tankPerf.attach", board);
+            viewportReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("tankViewport.attach", board, viewportReference);
         }
         await JS.InvokeVoidAsync("tankPerf.count", "boardRenders");
     }
@@ -136,6 +132,7 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     {
         pressedKeys = new HashSet<string>();
         mouseHeld = false;
+        pressPending = false;
         await SendInputIfDifferent();
     }
     private async Task SendInputIfDifferent()
@@ -178,6 +175,8 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
   }
   public void Dispose()
   {
+    ((IJSInProcessRuntime)JS).InvokeVoid("tankViewport.detach", board);
+    viewportReference?.Dispose();
     inputCancellation.Cancel();
   }
 }
