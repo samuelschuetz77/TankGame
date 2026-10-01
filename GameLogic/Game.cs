@@ -98,6 +98,7 @@ public class Game
         return new TankState()
         {
             Id = t.Id,
+            Name = t.Name,
             InputSequence = t.InputSequence,
             PositionX = t.PositionX,
             PositionY = t.PositionY,
@@ -147,7 +148,8 @@ public class Game
         await Task.WhenAll(sends);
     }
 
-    public Guid JoinGame()
+    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
+    public Guid JoinGame(string? playerName = null)
     {
         lock (StateLock)
         {
@@ -159,6 +161,9 @@ public class Game
         var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         var newTank = new Tank
         {
+            Name = string.IsNullOrWhiteSpace(playerName)
+                ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
+                : playerName.Trim(),
             PositionX = spawnPoint?.X ?? 0,
             PositionY = spawnPoint?.Y ?? 0,
             Angle = spawnPoint?.Angle ?? 0,

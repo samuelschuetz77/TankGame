@@ -66,6 +66,16 @@
     </div>
   </header>
 
+  <section class="panel">
+    <label class="field">
+      <span class="field-label">Your name</span>
+      <div class="name-input">
+        <input type="text" placeholder="Leave blank for a random name" maxlength="20" autocomplete="off"
+               @bind=playerName @bind:event="oninput" />
+      </div>
+    </label>
+  </section>
+
   <section class="panel deploy-panel">
     <div class="panel-head">
       <h2 class="panel-title"><span class="title-icon">⌖</span> Deploy a new battle</h2>
@@ -424,6 +434,8 @@
 
 
   private string userInputGameName = "";
+  // Static so it survives leaving a game and coming back to the lobby
+  private static string playerName = "";
   private MapMode selectedMode = MapMode.Standard;
   private string? joinError;
   private static string ModeLabel(MapMode mode) => mode == MapMode.BigMap ? "Big Map" : mode.ToString();
@@ -577,7 +589,7 @@
     {
       // Invoke (not Send) so a server-side rejection comes back as an exception
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings);
+        await connection.InvokeAsync(Messages.CreateGame, userInputGameName.Trim(), selectedMapName, selectedMatchType, settings, playerName.Trim());
     }
     catch (Exception ex)
     {
@@ -594,7 +606,7 @@
     try
     {
       if (signalR.HubConnection is { } connection)
-        await connection.InvokeAsync(Messages.JoinGame, gameName);
+        await connection.InvokeAsync(Messages.JoinGame, gameName, playerName.Trim());
     }
     catch
     {
