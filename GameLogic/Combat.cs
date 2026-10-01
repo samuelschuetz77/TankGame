@@ -109,18 +109,21 @@ public static class Combat
         {
             var tank = result[i];
             if (!tank.Respawning) continue;
+            // Picked ahead of time so the owner can see where they'll return; re-picked only if someone takes the spot
+            var spawn = tank.PendingSpawn is { } pending && SpawnSelector.IsFree(map, result, pending, settings)
+                ? pending
+                : SpawnSelector.Choose(map, result, rng, settings);
             if (tank.RespawnTicksLeft > 1)
             {
-                result[i] = tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1 };
+                result[i] = tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1, PendingSpawn = spawn };
                 continue;
             }
-            var spawn = SpawnSelector.Choose(map, result, rng, settings);
-            result[i] = spawn is null ? tank with { RespawnTicksLeft = 0 } : tank with
+            result[i] = spawn is null ? tank with { RespawnTicksLeft = 0, PendingSpawn = null } : tank with
             {
                 PositionX = spawn.X, PositionY = spawn.Y,
                 Angle = spawn.Angle, TurretAngle = spawn.Angle,
                 Health = match.Health, RespawnTicksLeft = 0, NextShotAtMs = 0,
-                AimX = null, AimY = null
+                AimX = null, AimY = null, PendingSpawn = null
             };
         }
         return result;

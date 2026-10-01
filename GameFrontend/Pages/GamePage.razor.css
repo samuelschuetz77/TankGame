@@ -54,3 +54,7 @@
 .settings-header h2 { margin: 0; font-size: 1.4rem; }
 .settings-panels { display: flex; flex-wrap: wrap; gap: 20px; }
 .developer-settings, .settings-panels ::deep aside { flex: 1 1 260px; width: auto !important; min-width: 0; padding: 12px; border: 1px solid #cbd5e1; }
+
+/* Private respawn preview, drawn only for the waiting player */
+.spawn-marker { position: absolute; box-sizing: border-box; border: 2px dashed #3fb950; border-radius: 6px; background: #3fb95022; pointer-events: none; animation: spawn-marker-pulse 1s ease-in-out infinite; }
+@keyframes spawn-marker-pulse { 50% { opacity: .35; } }

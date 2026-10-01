@@ -48,7 +48,7 @@ public record MatchSettings
     // Deaths a tank can take; the last death is permanent
     public int Lives { get; init; } = DefaultLives;
     // Wait between dying and coming back (0 = next tick)
-    public int RespawnSeconds { get; init; } = 5;
+    public int RespawnSeconds { get; init; } = 3;
     public double SpeedMultiplier { get; init; } = 1;
     public int TimeLimitMinutes { get; init; } = 0;
 

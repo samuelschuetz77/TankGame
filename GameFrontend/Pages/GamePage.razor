@@ -46,12 +46,18 @@
         }
         @foreach (var tank in game.Tanks ?? [])
         {
-          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" MaxHealth="@game.Settings.Health" MaxLives="@game.Settings.Lives" />
+          <TankComponent @key=tank.Id Tank=tank VisualTopOffset="@game.DeveloperSettings.VisualTopOffset" MaxHealth="@game.Settings.Health" MaxLives="@game.Settings.Lives" ReloadMs="@game.Settings.ReloadMs" />
           @if (showHitbox && game.MatchType == GameMatchTypes.DeveloperSimulation)
           {
             var area = Tank.GetCollisionArea(new Tank { PositionX = tank.PositionX, PositionY = tank.PositionY }, game.DeveloperSettings);
             <div class="tank-hitbox" style="@($"position: absolute; left: {area.X}px; top: {area.Y}px; width: {area.Width}px; height: {area.Height}px; border: 1px solid #e00060; background: #e0006018; pointer-events: none; z-index: 10;")"></div>
           }
+        }
+        @if (LocalTank is { Respawning: true, PendingSpawn: { } spawn })
+        {
+          @* Private to this player: the server only sends it to the owner *@
+          <div class="spawn-marker" title="You respawn here"
+               style="@($"left: {spawn.X}px; top: {spawn.Y - game.DeveloperSettings.VisualTopOffset}px; width: {Tank.Size}px; height: {Tank.Size}px;")"></div>
         }
         <BulletsComponent Bullets="@(game.Bullets ?? [])" />
         <ExplosionsComponent Explosions="@(game.Explosions ?? [])" />
@@ -91,8 +97,8 @@
             {
               <tr>
                 <td>@tank.Id.ToString()[^5..]@(tank.Id == PlayerId ? " (you)" : "")</td>
-                <td>@tank.Health/@game.Settings.Health</td>
-                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : (game.Settings.Lives - tank.Deaths).ToString())</td>
+                <td>@(tank.Health is int health ? $"{health}/{game.Settings.Health}" : "?")</td>
+                <td>@(tank.Eliminated ? "out" : tank.Respawning ? $"respawn {(tank.RespawnTicksLeft + 9) / 10}s" : tank.Deaths is int deaths ? (game.Settings.Lives - deaths).ToString() : "?")</td>
                 <td>@tank.HitsLanded</td>
               </tr>
             }
@@ -228,7 +234,7 @@
   private async Task Resubscribe(string? connectionId)
   {
     if (!disposed && signalR.HubConnection is { } connection)
-      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName, PlayerId); connectionError = null; }
       catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
   }
   protected override async Task OnParametersSetAsync()
@@ -260,7 +266,7 @@
     {
       connection.Reconnected -= Resubscribe;
       connection.Reconnected += Resubscribe;
-      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName); connectionError = null; }
+      try { await connection.InvokeAsync(Messages.SubscribeToGame, GameName, PlayerId); connectionError = null; }
       catch (HubException ex) { game = null; connectionError = ex.Message; await InvokeAsync(StateHasChanged); }
     }
 

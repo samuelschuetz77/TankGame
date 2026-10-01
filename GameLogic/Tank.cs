@@ -28,6 +28,8 @@ public record Tank
     public int Deaths { get; init; }
     // Ticks until a destroyed tank comes back
     public int RespawnTicksLeft { get; init; }
+    // Where a waiting tank will come back. Only its owner is told (see Game.GetGameState)
+    public MapSpawnPoint? PendingSpawn { get; init; }
     // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
     public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out

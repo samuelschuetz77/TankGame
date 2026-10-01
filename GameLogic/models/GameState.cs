@@ -51,10 +51,16 @@ public record TankState
     public int PositionY { get; init; }
     public int Angle { get; init; }
     public int TurretAngle { get; init; }
-    public int Health { get; init; }
+    // Private while the tank is alive: only its owner (and everyone, once the match ends) gets the number
+    public int? Health { get; init; }
     public bool Eliminated { get; init; }
-    public int Deaths { get; init; }
+    // Private like Health
+    public int? Deaths { get; init; }
     public int RespawnTicksLeft { get; init; }
+    // Private: only filled in for the tank's own viewer, null for everyone else
+    public MapSpawnPoint? PendingSpawn { get; init; }
+    // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner
+    public int? ReloadMsLeft { get; init; }
     public int HitsLanded { get; init; }
     // Destroyed with lives left, waiting to come back
     public bool Respawning => Health <= 0 && !Eliminated;
