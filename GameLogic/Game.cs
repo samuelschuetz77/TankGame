@@ -108,6 +108,7 @@ public class Game
             Eliminated = t.Eliminated,
             Deaths = revealed ? t.Deaths : null,
             RespawnTicksLeft = t.RespawnTicksLeft,
+            Flashing = t.HitFlashTicks > 0,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,

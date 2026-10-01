@@ -53,7 +53,10 @@ public class GameLoopRunner
         {
             game.Tick++;
             var movement = game.Settings.ScaleMovement(game.DeveloperSettings);
-            game.Tanks = game.Tanks.Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement)).ToArray();
+            game.Tanks = game.Tanks
+                .Select(tank => Tank.ProcessTankMovement(tank, game.Map, movement))
+                .Select(tank => tank.HitFlashTicks > 0 ? tank with { HitFlashTicks = tank.HitFlashTicks - 1 } : tank)
+                .ToArray();
             game.Bullets = game.Bullets
                 .Select(bullet => Bullet.MoveBullet(bullet, game.Map))
                 .Where(bullet => bullet is not null)

@@ -36,6 +36,13 @@
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
     }
 
+    private const string flashColor = "#ff1f1f";
+    private string FlashStyle(string part)
+    {
+        var mask = $"url(images/PNG/Tanks/{part}{color}.png) no-repeat center / 100% 100%";
+        return $"background: {flashColor}; -webkit-mask: {mask}; mask: {mask}; opacity: {(tank.Flashing ? 0.4 : 0)}; pointer-events: none;";
+    }
+
     // Keep the rotation continuous so crossing 180/-180 doesn't animate the long way around
     static double ShortestRotation(double? previous, int target)
     {
@@ -74,8 +81,11 @@ else if (tank != null && !tank.Eliminated)
         <div style=@($"position: absolute; left: {Tank.Size / 2}px; top: {Tank.Size / 2}px; transform: scale({spriteScale});")>
             <img src=@($"images/PNG/Tanks/tank{color}.png") alt=""
                  style=@($"{transitionConst}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg);") />
+            @* Hit flash: a red copy of the sprite's own shape laid over it, so it works for every tank color *@
+            <div style=@($"{transitionConst}; position: absolute; left: {-turretPivotX}px; top: {-turretPivotY}px; width: 75px; height: 70px; transform-origin: {turretPivotX}px {turretPivotY}px; transform: rotate({hullRotation}deg); {FlashStyle("tank")}") />
             <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
                  style=@($"{transitionConst}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
+            <div style=@($"{transitionConst}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; width: 16px; height: 50px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg); {FlashStyle("barrel")}") />
         </div>
         @* After the sprite so it draws over the barrel *@
         <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />

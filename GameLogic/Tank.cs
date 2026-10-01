@@ -30,6 +30,9 @@ public record Tank
     public int RespawnTicksLeft { get; init; }
     // Where a waiting tank will come back. Only its owner is told (see Game.GetGameState)
     public MapSpawnPoint? PendingSpawn { get; init; }
+    // Ticks left of the red "just got hit" flash; public to everyone, unlike the health that caused it
+    public const int HitFlashTicksOnHit = 1;
+    public int HitFlashTicks { get; init; }
     // Destroyed but with lives left: waiting to respawn, can't move, shoot or be hit
     public bool Respawning => Health <= 0 && !Eliminated;
     // Hits on other tanks; breaks health ties when time runs out

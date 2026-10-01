@@ -39,7 +39,7 @@ public static class Combat
     {
         var target = tankList[targetIndex];
         var health = Math.Max(0, target.Health - 1);
-        tankList[targetIndex] = health > 0 ? target with { Health = health } : Destroy(target, match);
+        tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
         // Shooting yourself with a bounce doesn't count as a hit landed
         var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);

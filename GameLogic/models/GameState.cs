@@ -57,6 +57,8 @@ public record TankState
     // Private like Health
     public int? Deaths { get; init; }
     public int RespawnTicksLeft { get; init; }
+    // Just got hit. Public, so everyone can see the damage without learning how much health is left
+    public bool Flashing { get; init; }
     // Private: only filled in for the tank's own viewer, null for everyone else
     public MapSpawnPoint? PendingSpawn { get; init; }
     // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner
