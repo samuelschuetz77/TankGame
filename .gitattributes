@@ -1,2 +1,3 @@
-# Keep Razor line endings consistent across Windows and other development environments.
-*.razor text eol=lf
+# Keep files shared with the pending interpolation PR consistent across platforms.
+GameFrontend/Pages/GamePage.razor text eol=lf
+GameFrontend/Pages/TankComponent.razor text eol=lf
