@@ -30,9 +30,9 @@ style="position: absolute; inset: 0; overflow: hidden; outline: none; background
 
 @code {
     [Parameter]
-    public RenderFragment ChildContent { get; set; }
+    public RenderFragment? ChildContent { get; set; }
     [Parameter]
-    public string GameName { get; set; }
+    public string GameName { get; set; } = string.Empty;
     [Parameter]
     public Guid PlayerId { get; set; }
     [Parameter] public EventCallback<(double Width, double Height)> ViewportChanged { get; set; }

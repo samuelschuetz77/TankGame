@@ -165,7 +165,7 @@
   private Task OpenSettings() => JS.InvokeVoidAsync("tankViewport.openSettings", settingsDialog).AsTask();
   private Task CloseSettings() => JS.InvokeVoidAsync("tankViewport.closeSettings", settingsDialog).AsTask();
   [Parameter]
-  public string GameName { get; set; }
+  public string GameName { get; set; } = string.Empty;
 
   [Parameter]
   public Guid PlayerId { get; set; }

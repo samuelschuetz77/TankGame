@@ -7,6 +7,6 @@
         }
 @code {
     [Parameter]
-    public IEnumerable<BulletState> Bullets { get; set; }
+    public IEnumerable<BulletState> Bullets { get; set; } = [];
     private const string transitionConst = "transition: all 0.1s linear";
 }

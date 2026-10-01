@@ -11,7 +11,6 @@ public class GameLoopRunner
     public const int TicksPerSecond = 10;
 
     private long lastTickAt;
-    private ReplaySaver? saver;
     public GameLoopRunner(Game game)
     {
         this.game = game;
@@ -71,8 +70,6 @@ public class GameLoopRunner
             game.ApplyResult(Combat.DecideResult(game.Tanks.ToArray(), game.TicksLeft));
         }
         }
-
-        saver?.SaveTick(game.Tanks, game.Tick, game.Name ?? string.Empty);
 
         game.ServerWorkMs = Stopwatch.GetElapsedTime(tickAt).TotalMilliseconds;
         var broadcastAt = Stopwatch.GetTimestamp();

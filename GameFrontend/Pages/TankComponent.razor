@@ -3,7 +3,7 @@
 
 @code {
     [Parameter]
-    public TankState tank { get; set; }
+    public TankState tank { get; set; } = null!;
     // Match rules, so the health bar and lives counter know their maximums
     [Parameter]
     public int MaxHealth { get; set; } = MatchSettings.DefaultHealth;

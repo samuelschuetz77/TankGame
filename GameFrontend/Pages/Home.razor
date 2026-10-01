@@ -390,7 +390,7 @@
               <li>⚙ @(settings.SpeedMultiplier)× speed</li>
               <li>⌛ @(settings.TimeLimitMinutes == 0 ? "no limit" : $"{settings.TimeLimitMinutes} min")</li>
             </ul>
-            <button class="btn-game primary full" disabled="@(ended || full)" @onclick="() => JoinGame(game.Name)">
+            <button class="btn-game primary full" disabled="@(ended || full)" @onclick="() => JoinGame(game.Name!)">
               @(ended ? "Battle over" : full ? "Full" : "Join battle →")
             </button>
           </div>
