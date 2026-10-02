@@ -111,6 +111,7 @@ public class Game
             Deaths = revealed ? t.Deaths : null,
             RespawnTicksLeft = t.RespawnTicksLeft,
             Flashing = t.HitFlashTicks > 0,
+            Boosting = t.Boosting,
             PendingSpawn = isOwner ? t.PendingSpawn : null,
             ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
             HitsLanded = t.HitsLanded,
@@ -202,6 +203,7 @@ public class Game
                     MovingRight = request.Right,
                     Shooting = request.Shoot,
                     MovingDown = request.Down,
+                    BoostHeld = request.Boost,
                     AimX = request.AimX ?? t.AimX,
                     AimY = request.AimY ?? t.AimY,
                 };
@@ -270,7 +272,10 @@ public class Game
             BrakeAcceleration = Math.Clamp(settings.BrakeAcceleration, -30, 0),
             MaxSpeed = Math.Clamp(settings.MaxSpeed, 1, 160),
             TurnDegrees = Math.Clamp(settings.TurnDegrees, 1, 180),
-            BackwardSpeedMultiplier = Math.Clamp(settings.BackwardSpeedMultiplier, 0.1, 1.5)
+            BackwardSpeedMultiplier = Math.Clamp(settings.BackwardSpeedMultiplier, 0.1, 1.5),
+            BoostDrainPerTick = Math.Clamp(settings.BoostDrainPerTick, 0.1, 20),
+            BoostRegenPerTick = Math.Clamp(settings.BoostRegenPerTick, 0.1, 20),
+            BoostSpeedMultiplier = Math.Clamp(settings.BoostSpeedMultiplier, 1.0, 4.0)
         };
     }
 

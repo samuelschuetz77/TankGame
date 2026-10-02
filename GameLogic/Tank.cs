@@ -16,6 +16,11 @@ public record Tank
     public bool MovingLeft { get; init; }
     public bool MovingRight { get; init; }
     public bool Shooting { get; init; }
+    public bool BoostHeld { get; init; }
+    public bool Boosting { get; init; }
+    public bool BoostLocked { get; init; }
+    public double BoostEnergy { get; init; } = 100;
+    public const double BoostMaxEnergy = 100;
     public bool MovingDown { get; init; }
     // Point the turret aims at (the player's mouse), in board coordinates
     public int? AimX { get; init; }
@@ -60,7 +65,8 @@ public record Tank
         if (tank.Eliminated || tank.Respawning)
             return tank;
 
-        var turnedShip = CalculateNewAngleAndSpeed(tank, settings);
+        var boosted = ApplyBoost(tank, settings);
+        var turnedShip = CalculateNewAngleAndSpeed(boosted, settings);
         var movedShip = CalculateNewPosition(turnedShip, map, settings);
         //CalculateShooting(movedShip);
         return AimTurret(movedShip, settings);
@@ -121,13 +127,14 @@ public record Tank
 
     private static Tank CalculateNewAngleAndSpeed(Tank tank, DeveloperGameSettings settings)
     {
+        var effectiveMaxSpeed = tank.Boosting ? (int)Math.Round(settings.MaxSpeed * settings.BoostSpeedMultiplier) : settings.MaxSpeed;
         var netX = (tank.MovingRight ? 1 : 0) - (tank.MovingLeft ? 1 : 0);
         var netY = (tank.MovingDown ? 1 : 0) - (tank.MovingUp ? 1 : 0);
 
         if (netX == 0 && netY == 0)
         {
             // No input: brake (BrakeAcceleration is negative), coasting on any leftover speed
-            return tank with { Speed = Math.Clamp(tank.Speed + settings.BrakeAcceleration, 0, settings.MaxSpeed) };
+            return tank with { Speed = Math.Clamp(tank.Speed + settings.BrakeAcceleration, 0, effectiveMaxSpeed) };
         }
 
         var desiredAngle = (int)Math.Round(Math.Atan2(netY, netX) * 180.0 / Math.PI);
@@ -143,7 +150,7 @@ public record Tank
         {
             Angle = NormalizeAngle(tank.Angle + turn),
             Reversing = reversing,
-            Speed = Math.Clamp(tank.Speed + settings.ForwardAcceleration, 0, settings.MaxSpeed),
+            Speed = Math.Clamp(tank.Speed + settings.ForwardAcceleration, 0, effectiveMaxSpeed),
         };
     }
 
@@ -232,6 +239,31 @@ public record Tank
             ? lastValidTank with { Speed = 0 }
             : lastValidTank;
     }
+
+    private static Tank ApplyBoost(Tank tank, DeveloperGameSettings settings)
+{
+    var hasMovementInput = tank.MovingUp || tank.MovingDown || tank.MovingLeft || tank.MovingRight;
+    var wantsBoost = tank.BoostHeld && hasMovementInput && !tank.BoostLocked && tank.BoostEnergy > 0;
+
+    var energy = tank.BoostEnergy;
+    var locked = tank.BoostLocked;
+
+    if (wantsBoost)
+    {
+        energy = Math.Max(0, energy - settings.BoostDrainPerTick);
+        if (energy == 0)
+            locked = true;
+    }
+    else
+    {
+        energy = Math.Min(BoostMaxEnergy, energy + settings.BoostRegenPerTick);
+    }
+
+    if (!tank.BoostHeld)
+        locked = false;
+
+    return tank with { Boosting = wantsBoost, BoostEnergy = energy, BoostLocked = locked };
+}
 
     public static RectangleArea GetVisualArea(Tank tank) =>
         new(

@@ -41,6 +41,9 @@ public record DeveloperGameSettings
     public int MaxSpeed { get; init; } = 8;
     public int TurnDegrees { get; init; } = 180;
     public double BackwardSpeedMultiplier { get; init; } = 0.65;
+    public double BoostDrainPerTick { get; init; } = 2.5;
+    public double BoostRegenPerTick { get; init; } = 1.0;
+    public double BoostSpeedMultiplier { get; init; } = 5;
 }
 
 public record TankState
@@ -60,6 +63,7 @@ public record TankState
     public int RespawnTicksLeft { get; init; }
     // Just got hit. Public, so everyone can see the damage without learning how much health is left
     public bool Flashing { get; init; }
+    public bool Boosting { get; init; }
     // Private: only filled in for the tank's own viewer, null for everyone else
     public MapSpawnPoint? PendingSpawn { get; init; }
     // Private: ms until the tank can fire again (0 = ready); null for everyone but the owner

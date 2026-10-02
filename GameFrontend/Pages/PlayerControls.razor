@@ -6,26 +6,25 @@
 @implements IHandleEvent
 @inject Microsoft.JSInterop.IJSRuntime JS
 
-<div tabindex="0" @ref="board"
-class="game-board"
-style="position: absolute; inset: 0; overflow: hidden; outline: none; background: #171e14;"
-@onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
-@onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
->
+<div tabindex="0" @ref="board" class="game-board"
+     style="position: absolute; inset: 0; overflow: hidden; outline: none; background: #171e14;"
+     @onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur" @onmousemove="handleMouseMove"
+     @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp">
     <div style="@WorldStyle">
         @ChildContent
     </div>
 </div>
 <style>
     /* Double-clicking a tank (to shoot) must not select its label or drag its image */
-    .game-board, .game-board * {
+    .game-board,
+    .game-board * {
         user-select: none;
         -webkit-user-select: none;
     }
+
     .game-board img {
         -webkit-user-drag: none;
     }
-
 </style>
 
 @code {
@@ -100,11 +99,15 @@ style="position: absolute; inset: 0; overflow: hidden; outline: none; background
         var key = NormalizeKey(e.Key);
         if (movementKeys.Contains(key))
             pressedKeys.Add(key);
+        if (e.Key == "Shift")
+            pressedKeys.Add("Shift");
         await SendInputIfDifferent();
     }
     private async Task handleKeyUp(KeyboardEventArgs e)
     {
         pressedKeys.Remove(NormalizeKey(e.Key));
+        if (e.Key == "Shift")
+            pressedKeys.Remove("Shift");
         await SendInputIfDifferent();
     }
     private void handleMouseMove(MouseEventArgs e)
@@ -137,7 +140,8 @@ style="position: absolute; inset: 0; overflow: hidden; outline: none; background
     }
     private async Task SendInputIfDifferent()
     {
-        if (sending || inputCancellation.IsCancellationRequested || PlayerId == Guid.Empty || string.IsNullOrEmpty(GameName) || signalR.HubConnection?.State != HubConnectionState.Connected)
+        if (sending || inputCancellation.IsCancellationRequested || PlayerId == Guid.Empty || string.IsNullOrEmpty(GameName) ||
+signalR.HubConnection?.State != HubConnectionState.Connected)
             return;
 
         var up = pressedKeys.Contains("ArrowUp");
@@ -145,38 +149,40 @@ style="position: absolute; inset: 0; overflow: hidden; outline: none; background
         var right = pressedKeys.Contains("ArrowRight");
         var down = pressedKeys.Contains("ArrowDown");
         var shoot = pressedKeys.Contains(" ") || mouseHeld || pressPending;
+        var boost = pressedKeys.Contains("Shift");
 
         var movementMessage = new PlayerInputRequest
-      {
-        GameName = GameName,
-        PlayerId = (Guid)PlayerId,
-        Up = up,
-        Left = left,
-        Right = right,
-        Shoot = shoot,
-        Down = down,
-        AimX = aimX,
-        AimY = aimY,
-       };
+        {
+            GameName = GameName,
+            PlayerId = (Guid)PlayerId,
+            Up = up,
+            Left = left,
+            Right = right,
+            Shoot = shoot,
+            Boost = boost,
+            Down = down,
+            AimX = aimX,
+            AimY = aimY,
+        };
 
-    // The press is now part of the shooting state, whether or not this message differs
-    if (shoot)
-      pressPending = false;
-    if (movementMessage != lastSentInput)
-    {
-      lastSentInput = movementMessage;
-      movementMessage = movementMessage with { InputSequence = ++inputSequence };
-      ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.sent", inputSequence);
-      sending = true;
-      try { await signalR.HubConnection!.SendAsync(Messages.PlayerInput, movementMessage); }
-      catch (Exception) { lastSentInput = null; }
-      finally { sending = false; }
+        // The press is now part of the shooting state, whether or not this message differs
+        if (shoot)
+            pressPending = false;
+        if (movementMessage != lastSentInput)
+        {
+            lastSentInput = movementMessage;
+            movementMessage = movementMessage with { InputSequence = ++inputSequence };
+            ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.sent", inputSequence);
+            sending = true;
+            try { await signalR.HubConnection!.SendAsync(Messages.PlayerInput, movementMessage); }
+            catch (Exception) { lastSentInput = null; }
+            finally { sending = false; }
+        }
     }
-  }
-  public void Dispose()
-  {
-    ((IJSInProcessRuntime)JS).InvokeVoid("tankViewport.detach", board);
-    viewportReference?.Dispose();
-    inputCancellation.Cancel();
-  }
+    public void Dispose()
+    {
+        ((IJSInProcessRuntime)JS).InvokeVoid("tankViewport.detach", board);
+        viewportReference?.Dispose();
+        inputCancellation.Cancel();
+    }
 }
