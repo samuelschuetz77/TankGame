@@ -43,7 +43,7 @@ public record DeveloperGameSettings
     public double BackwardSpeedMultiplier { get; init; } = 0.65;
     public double BoostDrainPerTick { get; init; } = 2.5;
     public double BoostRegenPerTick { get; init; } = 1.0;
-    public double BoostSpeedMultiplier { get; init; } = 1.8;
+    public double BoostSpeedMultiplier { get; init; } = 5;
 }
 
 public record TankState
