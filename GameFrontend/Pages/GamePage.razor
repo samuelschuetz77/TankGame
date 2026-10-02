@@ -11,7 +11,7 @@
 @if (connectionError is not null)
 {
   <div class="alert alert-warning" role="alert">
-    @connectionError <a href="/">Return to the lobby</a>
+    @connectionError <a href="./">Return to the lobby</a>
   </div>
 }
 @if (game != null)
@@ -81,7 +81,7 @@
         <button type="button" class="btn-close" aria-label="Close settings" @onclick="CloseSettings"></button>
       </header>
       <p>Drive with WASD or the arrow keys, aim with the mouse, and click to fire.</p>
-      <a href="/" class="btn btn-outline-secondary mb-3">Return to lobby</a>
+      <a href="./" class="btn btn-outline-secondary mb-3">Return to lobby</a>
       <div class="settings-panels">
 
     @if (game.MatchType == GameMatchTypes.DeveloperSimulation)

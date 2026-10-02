@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.SignalR.Client;
 
-public class SignalRService
+public class SignalRService(IConfiguration configuration)
 {
     public HubConnection? HubConnection;
+    private readonly string apiBaseUrl = (configuration["ApiBaseUrl"] ?? "http://localhost:5135").TrimEnd('/');
     private readonly SemaphoreSlim connectionLock = new(1, 1);
 
     public async Task EnsureConnected()
@@ -11,7 +12,7 @@ public class SignalRService
         try
         {
             HubConnection ??= new HubConnectionBuilder()
-                .WithUrl("http://localhost:5135/api/gameHub")
+                .WithUrl($"{apiBaseUrl}/api/gameHub")
                 .WithAutomaticReconnect()
                 .Build();
             if (HubConnection.State == HubConnectionState.Disconnected)

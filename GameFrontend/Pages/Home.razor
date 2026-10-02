@@ -512,11 +512,11 @@
 
     subscriptions.Add(signalR.HubConnection!.On<string, Guid>(Messages.CreatedGame, (gameName, playerId) => {
       Console.WriteLine("got created game response");
-      Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
+      Navigation.NavigateTo($"game/{gameName}/player/{playerId}");
     }));
     subscriptions.Add(signalR.HubConnection!.On<string, Guid>(Messages.JoinedGame, (gameName, playerId) => {
       Console.WriteLine("got  game joined response");
-      Navigation.NavigateTo($"/game/{gameName}/player/{playerId}");
+      Navigation.NavigateTo($"game/{gameName}/player/{playerId}");
     }));
 
     signalR.HubConnection?.SendAsync(Messages.GetGames);

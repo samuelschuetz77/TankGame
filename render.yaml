@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tankgame-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./GameApi/Dockerfile
+    dockerContext: .
+    branch: github-prod-up
+    envVars:
+      - key: PORT
+        value: "8080"
