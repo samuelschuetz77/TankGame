@@ -39,7 +39,7 @@ public static class Combat
     {
         var target = tankList[targetIndex];
         var health = Math.Max(0, target.Health - 1);
-        tankList[targetIndex] = health > 0 ? target with { Health = health } : Destroy(target, match);
+        tankList[targetIndex] = health > 0 ? target with { Health = health, HitFlashTicks = Tank.HitFlashTicksOnHit } : Destroy(target, match);
 
         // Shooting yourself with a bounce doesn't count as a hit landed
         var shooterIndex = tankList.FindIndex(tank => tank.Id == shooterId);
@@ -101,28 +101,33 @@ public static class Combat
         };
     }
 
-    // Counts down destroyed tanks; at zero they return with full health at a random spawn point
-    // (random on purpose: it can be the spot they just died near, or the same as last time)
-    public static Tank[] TickRespawns(IEnumerable<Tank> tanks, GameMap map, MatchSettings match, Random rng) =>
-        tanks.Select(tank =>
+    // Update the working list immediately so simultaneous respawns cannot claim the same space.
+    public static Tank[] TickRespawns(IEnumerable<Tank> tanks, GameMap map, MatchSettings match, Random rng, DeveloperGameSettings? settings = null)
+    {
+        var result = tanks.ToArray();
+        for (var i = 0; i < result.Length; i++)
         {
-            if (!tank.Respawning)
-                return tank;
+            var tank = result[i];
+            if (!tank.Respawning) continue;
+            // Picked ahead of time so the owner can see where they'll return; re-picked only if someone takes the spot
+            var spawn = tank.PendingSpawn is { } pending && SpawnSelector.IsFree(map, result, pending, settings)
+                ? pending
+                : SpawnSelector.Choose(map, result, rng, settings);
             if (tank.RespawnTicksLeft > 1)
-                return tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1 };
-
-            var spawn = map.SpawnPoints[rng.Next(map.SpawnPoints.Count)];
-            return tank with
             {
-                PositionX = spawn.X,
-                PositionY = spawn.Y,
-                Angle = spawn.Angle,
-                TurretAngle = spawn.Angle,
-                Health = match.Health,
-                RespawnTicksLeft = 0,
-                NextShotAtMs = 0,
+                result[i] = tank with { RespawnTicksLeft = tank.RespawnTicksLeft - 1, PendingSpawn = spawn };
+                continue;
+            }
+            result[i] = spawn is null ? tank with { RespawnTicksLeft = 0, PendingSpawn = null } : tank with
+            {
+                PositionX = spawn.X, PositionY = spawn.Y,
+                Angle = spawn.Angle, TurretAngle = spawn.Angle,
+                Health = match.Health, RespawnTicksLeft = 0, NextShotAtMs = 0,
+                AimX = null, AimY = null, PendingSpawn = null
             };
-        }).ToArray();
+        }
+        return result;
+    }
 
     // A match needs 2 players before it can end, or the creator would win alone.
     // ticksLeft is null when there's no time limit (or it hasn't started)

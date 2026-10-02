@@ -1,45 +1,36 @@
-
 using Microsoft.AspNetCore.SignalR.Client;
 
 public class SignalRService
 {
-  public HubConnection? HubConnection;
+    public HubConnection? HubConnection;
+    private readonly SemaphoreSlim connectionLock = new(1, 1);
 
-  public async Task EnsureConnected()
-  {
-    string hubUrl = "http://localhost:5135/api/gameHub";
-    if (HubConnection != null)
+    public async Task EnsureConnected()
     {
-      Console.WriteLine("Hub already connected, not reconnecting");
+        await connectionLock.WaitAsync();
+        try
+        {
+            HubConnection ??= new HubConnectionBuilder()
+                .WithUrl("http://localhost:5135/api/gameHub")
+                .WithAutomaticReconnect()
+                .Build();
+            if (HubConnection.State == HubConnectionState.Disconnected)
+                await HubConnection.StartAsync();
+        }
+        finally { connectionLock.Release(); }
     }
 
-    HubConnection = new HubConnectionBuilder()
-      .WithUrl(hubUrl)
-      .WithAutomaticReconnect()
-      .Build();
+    public HubConnection? GetConnection() => HubConnection;
 
-    try
+    public async Task StopConnectionAsync()
     {
-      await HubConnection.StartAsync();
-      Console.WriteLine("SignalR connection started.");
+        await connectionLock.WaitAsync();
+        try
+        {
+            if (HubConnection is null) return;
+            await HubConnection.DisposeAsync();
+            HubConnection = null;
+        }
+        finally { connectionLock.Release(); }
     }
-    catch (Exception ex)
-    {
-      Console.WriteLine($"Error starting SignalR connection: {ex.Message}");
-      throw;
-    }
-  }
-
-  public HubConnection? GetConnection() => HubConnection;
-
-  public async Task StopConnectionAsync()
-  {
-    if (HubConnection == null)
-    {
-      Console.WriteLine("Hub not connected, not disconnecting");
-      return;
-    }
-    await HubConnection.StopAsync();
-    HubConnection = null;
-  }
 }

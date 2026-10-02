@@ -1,0 +1,26 @@
+@using GameLogic
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<rect x="0" y="0" width="@Map.Width" height="@Map.Height" fill="@Map.GroundColor" />
+@foreach (var patch in Map.GroundPatches)
+{
+    <polygon points="@patch.SvgPoints" fill="@patch.Color" />
+}
+@foreach (var obstacle in Map.Obstacles)
+{
+    <polygon points="@obstacle.SvgPoints" fill="@obstacle.Color" stroke="#494b40" stroke-width="2" />
+}
+
+@code {
+    [Parameter, EditorRequired] public GameMap Map { get; set; } = default!;
+    protected override void OnAfterRender(bool firstRender) =>
+        ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.count", "mapRenders");
+    private GameMap? renderedMap;
+    private bool changed;
+    protected override void OnParametersSet()
+    {
+        changed = !ReferenceEquals(renderedMap, Map);
+        renderedMap = Map;
+    }
+    protected override bool ShouldRender() => changed;
+}

@@ -1,0 +1,18 @@
+@using GameLogic
+
+<svg viewBox="0 0 @Map.Width @Map.Height" width="@Map.Width" height="@Map.Height"
+     style="position:absolute;left:0;top:0;pointer-events:none;" aria-hidden="true">
+    <MapShapes Map="Map" />
+</svg>
+
+@code {
+    private GameMap? renderedMap;
+    protected override bool ShouldRender()
+    {
+        if (ReferenceEquals(renderedMap, Map)) return false;
+        renderedMap = Map;
+        return true;
+    }
+    protected override void OnAfterRender(bool firstRender) => renderedMap = Map;
+    [Parameter, EditorRequired] public GameMap Map { get; set; } = default!;
+}

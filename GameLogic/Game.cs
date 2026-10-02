@@ -8,6 +8,7 @@ public class Game
     private readonly IHubContext<LobbyHub> hubContext;
     internal object StateLock { get; } = new();
     // Milliseconds; reload is measured against this, so it isn't limited to the 100 ms tick. Tests swap it for a fake clock
+    internal Random SpawnRandom { get; init; } = Random.Shared;
     public Func<long> Clock { get; init; } = () => Environment.TickCount64;
 
     public GameStatus Status { get; private set; } = GameStatus.Playing;
@@ -21,7 +22,8 @@ public class Game
         ? null
         : StartedAtTick.Value + Settings.TimeLimitMinutes * 60 * GameLoopRunner.TicksPerSecond - Tick;
     //public event Action? OnUpdate;
-    public readonly ConcurrentDictionary<string, byte> ConnectedClients = new();
+    // Connection id -> the player watching on it (null for a connection that isn't playing); decides who gets private state
+    public readonly ConcurrentDictionary<string, Guid?> ConnectedClients = new();
     public string? Name { get; init; }
     public string MatchType { get; init; } = GameMatchTypes.Multiplayer;
     public DeveloperGameSettings DeveloperSettings { get; private set; } = new();
@@ -42,10 +44,23 @@ public class Game
         hubContext = context;
     }
 
-    public GameState GetGameState()
+    public double ServerWorkMs { get; internal set; }
+    public double ServerIntervalMs { get; internal set; }
+    public double ServerBroadcastMs { get; internal set; }
+
+    // viewerId is whose eyes this is for: values only that player may know (own health and lives, reload, respawn spot)
+    // are left out of everyone else's copy. Once the match has ended nothing is hidden any more.
+    public GameState GetGameState(bool includeMap = true, Guid? viewerId = null)
+    {
+        var now = Clock();
+        return Snapshot(includeMap, Tanks.Select(t => ToTankState(t, t.Id == viewerId, now)).ToArray());
+    }
+
+    private GameState Snapshot(bool includeMap, TankState[] tanks)
     {
         return new()
         {
+            Tick = Tick, ServerWorkMs = ServerWorkMs, ServerIntervalMs = ServerIntervalMs, ServerBroadcastMs = ServerBroadcastMs,
             Status = Status,
             Name = Name,
             MatchType = MatchType,
@@ -56,20 +71,8 @@ public class Game
             SecondsLeft = TicksLeft is int ticksLeft
                 ? (Math.Max(0, ticksLeft) + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond
                 : null,
-            Map = Map,
-            Tanks = Tanks.Select(t => new TankState()
-            {
-                Id = t.Id,
-                PositionX = t.PositionX,
-                PositionY = t.PositionY,
-                Angle = t.Angle,
-                TurretAngle = t.TurretAngle,
-                Health = t.Health,
-                Eliminated = t.Eliminated,
-                Deaths = t.Deaths,
-                RespawnTicksLeft = t.RespawnTicksLeft,
-                HitsLanded = t.HitsLanded,
-            }).ToArray(),
+            Map = includeMap ? Map : null,
+            Tanks = tanks,
             Explosions = Explosions.Select(e => new ExplosionState()
             {
                 Id = e.Id,
@@ -84,30 +87,89 @@ public class Game
                 Id = b.Id,
                 PositionX = b.PositionX,
                 PositionY = b.PositionY,
-                Angle = b.Angle
+                Angle = b.Angle,
+                OwnerId = b.OwnerId
             }).ToArray()
         };
     }
 
-    public async Task BroadcastUpdate()
+    private TankState ToTankState(Tank t, bool isOwner, long now)
     {
-        await hubContext.Clients.Clients(ConnectedClients.Keys.ToArray()).SendAsync(Messages.GameUpdate, GetGameState());
+        var revealed = isOwner || Status == GameStatus.Ended;
+        return new TankState()
+        {
+            Id = t.Id,
+            Name = t.Name,
+            InputSequence = t.InputSequence,
+            PositionX = t.PositionX,
+            PositionY = t.PositionY,
+            Angle = t.Angle,
+            TurretAngle = t.TurretAngle,
+            // A destroyed tank's 0 health is public (it shows as respawning or out); a living tank's isn't
+            Health = revealed || t.Health <= 0 ? t.Health : null,
+            Eliminated = t.Eliminated,
+            Deaths = revealed ? t.Deaths : null,
+            RespawnTicksLeft = t.RespawnTicksLeft,
+            Flashing = t.HitFlashTicks > 0,
+            PendingSpawn = isOwner ? t.PendingSpawn : null,
+            ReloadMsLeft = isOwner ? (int)Math.Max(0, t.NextShotAtMs - now) : null,
+            HitsLanded = t.HitsLanded,
+        };
     }
 
-    public Guid JoinGame()
+    public Task SendInitialUpdate(string connectionId, Guid? playerId = null) =>
+        hubContext.Clients.Client(connectionId).SendAsync(Messages.GameUpdate, GetGameState(viewerId: playerId));
+
+    public async Task BroadcastUpdate()
+    {
+        if (ConnectedClients.IsEmpty) return;
+        var clients = ConnectedClients.ToArray();
+        var now = Clock();
+        var tanks = Tanks.ToArray();
+        var publicTanks = tanks.Select(t => ToTankState(t, false, now)).ToArray();
+        var shared = Snapshot(includeMap: false, publicTanks);
+
+        // Each player gets the shared snapshot with only their own tank swapped for the full version
+        var sends = new List<Task>();
+        var anonymous = new List<string>();
+        foreach (var (connectionId, playerId) in clients)
+        {
+            var index = playerId is { } id ? Array.FindIndex(tanks, t => t.Id == id) : -1;
+            if (index < 0)
+            {
+                anonymous.Add(connectionId);
+                continue;
+            }
+            var own = (TankState[])publicTanks.Clone();
+            own[index] = ToTankState(tanks[index], true, now);
+            sends.Add(hubContext.Clients.Client(connectionId).SendAsync(Messages.GameUpdate, shared with { Tanks = own }));
+        }
+        if (anonymous.Count > 0)
+            sends.Add(hubContext.Clients.Clients(anonymous).SendAsync(Messages.GameUpdate, shared));
+        await Task.WhenAll(sends);
+    }
+
+    // A blank name (quick join, or no name set) gets a generated one that no one else in the game has
+    public Guid JoinGame(string? playerName = null)
     {
         lock (StateLock)
         {
         if (Status == GameStatus.Ended)
             throw new InvalidOperationException($"cannot join game, it has ended: {Name}");
 
-        var spawnPoint = Map.SpawnPoints.ElementAt(Tanks.Count() % Map.SpawnPoints.Count);
+        if (Tanks.Count() >= Map.MaxPlayers)
+            throw new InvalidOperationException($"cannot join game, lobby is full: {Name}");
+        var spawnPoint = SpawnSelector.Choose(Map, Tanks, SpawnRandom, DeveloperSettings);
         var newTank = new Tank
         {
-            PositionX = spawnPoint.X,
-            PositionY = spawnPoint.Y,
-            Angle = spawnPoint.Angle,
-            Health = Settings.Health
+            Name = string.IsNullOrWhiteSpace(playerName)
+                ? PlayerNames.Generate(Tanks.Select(t => t.Name), Random.Shared)
+                : playerName.Trim(),
+            PositionX = spawnPoint?.X ?? 0,
+            PositionY = spawnPoint?.Y ?? 0,
+            Angle = spawnPoint?.Angle ?? 0,
+            TurretAngle = spawnPoint?.Angle ?? 0,
+            Health = spawnPoint is null ? 0 : Settings.Health
         };
         Tanks = Tanks.Append(newTank);
         CreatorId ??= newTank.Id;
@@ -134,6 +196,7 @@ public class Game
 
                 var updatedTank = t with
                 {
+                    InputSequence = request.InputSequence,
                     MovingUp = request.Up,
                     MovingLeft = request.Left,
                     MovingRight = request.Right,

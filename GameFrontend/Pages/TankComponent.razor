@@ -3,12 +3,14 @@
 
 @code {
     [Parameter]
-    public TankState tank { get; set; }
+    public TankState tank { get; set; } = null!;
     // Match rules, so the health bar and lives counter know their maximums
     [Parameter]
     public int MaxHealth { get; set; } = MatchSettings.DefaultHealth;
     [Parameter]
     public int MaxLives { get; set; } = MatchSettings.DefaultLives;
+    [Parameter]
+    public int ReloadMs { get; set; } = MatchSettings.DefaultReloadMs;
     [Parameter]
     public int VisualTopOffset { get; set; } = new DeveloperGameSettings().VisualTopOffset;
 
@@ -20,7 +22,6 @@
     private const double barrelWidth = 16;
     private const double hullImageWidth = 75;
     private const double spriteScale = Tank.Size / hullImageWidth;
-    private static readonly string[] colors = ["Beige", "Black", "Blue", "Green", "Red"];
 
     private string color = "Green";
     private double? hullRotation;
@@ -28,9 +29,16 @@
 
     protected override void OnParametersSet()
     {
-        color = colors[tank.Id.ToByteArray()[0] % colors.Length];
+        color = TankPalette.TankColor(tank.Id);
         hullRotation = ShortestRotation(hullRotation, tank.Angle + spriteFacingOffset);
         turretRotation = ShortestRotation(turretRotation, tank.TurretAngle + spriteFacingOffset);
+    }
+
+    private const string flashColor = "#ff1f1f";
+    private string FlashStyle(string part)
+    {
+        var mask = $"url(images/PNG/Tanks/{part}{color}.png) no-repeat center / 100% 100%";
+        return $"background: {flashColor}; -webkit-mask: {mask}; mask: {mask}; opacity: {(tank.Flashing ? 0.4 : 0)}; pointer-events: none;";
     }
 
     // Keep the rotation continuous so crossing 180/-180 doesn't animate the long way around
@@ -47,7 +55,7 @@
 @if (tank != null && tank.Respawning)
 {
     <div style=@($"position: absolute; top: {tank.PositionY - VisualTopOffset}px; left: {tank.PositionX}px; width: {Tank.Size}px; height: {Tank.Size}px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; line-height: 12px; color: #555; border: 1px dashed #999; pointer-events: none;")>
-        Respawning in @(((tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond))s
+        @(tank.RespawnTicksLeft > 0 ? $"Respawning in {(tank.RespawnTicksLeft + GameLoopRunner.TicksPerSecond - 1) / GameLoopRunner.TicksPerSecond}s" : "Waiting for a safe spawn")
     </div>
 }
 else if (tank != null && !tank.Eliminated)
@@ -67,5 +75,7 @@ else if (tank != null && !tank.Eliminated)
             <img src=@($"images/PNG/Tanks/barrel{color}.png") alt=""
                  style=@($"{RenderConstants.TickInterpolateStyle}; position: absolute; left: {-barrelWidth / 2}px; top: 0px; transform-origin: {barrelWidth / 2}px 0px; transform: rotate({turretRotation}deg);") />
         </div>
+        @* After the sprite so it draws over the barrel *@
+        <ReloadRing MsLeft="tank.ReloadMsLeft" TotalMs="ReloadMs" />
     </div>
 }

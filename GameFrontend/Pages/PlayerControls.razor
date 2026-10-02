@@ -3,17 +3,18 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @inject SignalRService signalR
 @implements IDisposable
+@implements IHandleEvent
+@inject Microsoft.JSInterop.IJSRuntime JS
 
-<div>
-    Drive with WASD or the arrow keys, aim with the mouse, and click to fire
-</div>
-<div tabindex="0" @ref="board" 
-class="p-1 m-1 border border-4 border-black rounded-4 game-board" 
-style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; overflow: hidden;")
-@onkeydown="handleKeyDown" @onkeydown:preventDefault="true" @onkeyup="handleKeyUp" @onblur="handleBlur"
+<div tabindex="0" @ref="board"
+class="game-board"
+style="position: absolute; inset: 0; overflow: hidden; outline: none; background: #171e14;"
+@onkeydown="handleKeyDown" @onkeyup="handleKeyUp" @onblur="handleBlur"
 @onmousemove="handleMouseMove" @onmousedown="handleMouseDown" @onmouseup="handleMouseUp" @onmouseleave="handleMouseUp"
 >
-    @ChildContent
+    <div style="@WorldStyle">
+        @ChildContent
+    </div>
 </div>
 <style>
     /* Double-clicking a tank (to shoot) must not select its label or drag its image */
@@ -24,25 +25,34 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     .game-board img {
         -webkit-user-drag: none;
     }
-    .game-board:focus {
-    border-color: blue !important;
-    background-color: rgb(240, 240, 240);
-    }
+
 </style>
 
 @code {
     [Parameter]
-    public RenderFragment ChildContent { get; set; }
+    public RenderFragment? ChildContent { get; set; }
     [Parameter]
-    public string GameName { get; set; }
+    public string GameName { get; set; } = string.Empty;
     [Parameter]
     public Guid PlayerId { get; set; }
-    [Parameter]
-    public int BoardWidth { get; set; } = 750;
-    [Parameter]
-    public int BoardHeight { get; set; } = 750;
+    [Parameter] public EventCallback<(double Width, double Height)> ViewportChanged { get; set; }
+    private DotNetObjectReference<PlayerControls>? viewportReference;
+    [JSInvokable]
+    public Task ResizeViewport(double width, double height) => ViewportChanged.InvokeAsync((width, height));
+    [Parameter] public MapCamera Camera { get; set; } = new(1, 0, 0);
+    private string WorldStyle => FormattableString.Invariant($"position:absolute;left:0;top:0;transform-origin:0 0;transform:scale({Camera.Scale}) translate({-Camera.X}px,{-Camera.Y}px);pointer-events:none;transition:transform 100ms linear;will-change:transform;");
+    Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem callback, object? arg) => callback.InvokeAsync(arg);
+    private long inputSequence;
+    private double? cursorX;
+    private double? cursorY;
+    protected override void OnParametersSet() => UpdateAim();
+    private void UpdateAim()
+    {
+        if (cursorX is double x && cursorY is double y)
+            (aimX, aimY) = Camera.ToWorld(x, y);
+    }
     private string[] movementKeys = ["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight", " "];
-    private const double inputCheckInterval = 0.01;
+    private const double inputCheckInterval = 0.02;
     private PlayerInputRequest? lastSentInput = null;
     private HashSet<string> pressedKeys = new HashSet<string>();
     private int? aimX = null;
@@ -50,21 +60,31 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
     private bool mouseHeld = false;
     // Set on press, cleared once sent, so a click shorter than one input check still fires
     private bool pressPending = false;
-    private Timer? sendInputTimer;
+    private readonly CancellationTokenSource inputCancellation = new();
+    private bool sending;
     private ElementReference board;
     // Focus the board as soon as it appears so keys work without clicking into it
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
+        {
             await board.FocusAsync();
+            await JS.InvokeVoidAsync("tankPerf.attach", board);
+            viewportReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("tankViewport.attach", board, viewportReference);
+        }
+        await JS.InvokeVoidAsync("tankPerf.count", "boardRenders");
     }
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized() => _ = RunInputLoop();
+    private async Task RunInputLoop()
     {
-        sendInputTimer = new Timer(
-          SendInputIfDifferent,
-          null,
-          TimeSpan.Zero,
-          TimeSpan.FromSeconds(inputCheckInterval)); // Executes every second
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(inputCheckInterval));
+            while (await timer.WaitForNextTickAsync(inputCancellation.Token))
+                await InvokeAsync(SendInputIfDifferent);
+        }
+        catch (OperationCanceledException) when (inputCancellation.IsCancellationRequested) { }
     }
     // WASD is an alias for the arrow keys
     private static string NormalizeKey(string key) => key.ToLowerInvariant() switch
@@ -75,41 +95,49 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         "d" => "ArrowRight",
         _ => key
     };
-    private void handleKeyDown(KeyboardEventArgs e)
+    private async Task handleKeyDown(KeyboardEventArgs e)
     {
         var key = NormalizeKey(e.Key);
         if (movementKeys.Contains(key))
             pressedKeys.Add(key);
+        await SendInputIfDifferent();
     }
-    private void handleKeyUp(KeyboardEventArgs e)
+    private async Task handleKeyUp(KeyboardEventArgs e)
     {
         pressedKeys.Remove(NormalizeKey(e.Key));
+        await SendInputIfDifferent();
     }
     private void handleMouseMove(MouseEventArgs e)
     {
         // Tanks and bullets ignore the mouse, so the offset is always relative to the board
-        aimX = (int)e.OffsetX;
-        aimY = (int)e.OffsetY;
+        cursorX = e.OffsetX;
+        cursorY = e.OffsetY;
+        UpdateAim();
     }
-    private void handleMouseDown(MouseEventArgs e)
+    private async Task handleMouseDown(MouseEventArgs e)
     {
         if (e.Button != 0)
             return;
+        handleMouseMove(e);
         mouseHeld = true;
         pressPending = true;
+        await SendInputIfDifferent();
     }
-    private void handleMouseUp(MouseEventArgs e)
+    private async Task handleMouseUp(MouseEventArgs e)
     {
         mouseHeld = false;
+        await SendInputIfDifferent();
     }
-    private void handleBlur()
+    private async Task handleBlur()
     {
         pressedKeys = new HashSet<string>();
         mouseHeld = false;
+        pressPending = false;
+        await SendInputIfDifferent();
     }
-    private void SendInputIfDifferent(object? state)
+    private async Task SendInputIfDifferent()
     {
-        @if (PlayerId == null || GameName == null)
+        if (sending || inputCancellation.IsCancellationRequested || PlayerId == Guid.Empty || string.IsNullOrEmpty(GameName) || signalR.HubConnection?.State != HubConnectionState.Connected)
             return;
 
         var up = pressedKeys.Contains("ArrowUp");
@@ -130,18 +158,25 @@ style=@($"height: {BoardHeight}px; width: {BoardWidth}px; position: relative; ov
         AimX = aimX,
         AimY = aimY,
        };
-      
+
     // The press is now part of the shooting state, whether or not this message differs
     if (shoot)
       pressPending = false;
     if (movementMessage != lastSentInput)
     {
       lastSentInput = movementMessage;
-      signalR.HubConnection?.SendAsync(Messages.PlayerInput, movementMessage);
+      movementMessage = movementMessage with { InputSequence = ++inputSequence };
+      ((Microsoft.JSInterop.IJSInProcessRuntime)JS).InvokeVoid("tankPerf.sent", inputSequence);
+      sending = true;
+      try { await signalR.HubConnection!.SendAsync(Messages.PlayerInput, movementMessage); }
+      catch (Exception) { lastSentInput = null; }
+      finally { sending = false; }
     }
   }
   public void Dispose()
   {
-    sendInputTimer?.Dispose();
+    ((IJSInProcessRuntime)JS).InvokeVoid("tankViewport.detach", board);
+    viewportReference?.Dispose();
+    inputCancellation.Cancel();
   }
 }

@@ -4,8 +4,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GameFrontend</title>
+    <title>Tanks</title>
     <base href="/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Chakra+Petch:wght@400;600;700&display=swap" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -26,10 +29,14 @@
         <a href="." class="reload">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
+    <script src="game-performance.js"></script>
+    <script src="game-viewport.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script>
         // Give the board focus back when this window/tab is returned to (e.g. switching between two instances)
-        window.addEventListener('focus', () => document.querySelector('.game-board')?.focus());
+        window.addEventListener('focus', () => {
+            if (!document.querySelector('dialog[open]')) document.querySelector('.game-board')?.focus();
+        });
     </script>
 </body>
 

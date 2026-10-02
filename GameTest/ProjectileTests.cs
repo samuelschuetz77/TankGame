@@ -82,7 +82,7 @@ public class ProjectileTests
     {
         var map = new GameMap("Walled", 800, 400, [new Obstacle(250, 150, 30, 100)],
             [new MapSpawnPoint(100, 200, 0), new MapSpawnPoint(400, 200, 180)]);
-        var game = new Game(new FakeHubContext()) { Map = map, Settings = new MatchSettings { Projectile = ProjectileType.Realistic } };
+        var game = new Game(new FakeHubContext()) { Map = map, SpawnRandom = new FirstSpawnRandom(), Settings = new MatchSettings { Projectile = ProjectileType.Realistic } };
         var a = game.JoinGame();
         var b = game.JoinGame();
 
